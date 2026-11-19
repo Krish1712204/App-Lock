@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Page background in light mode (same as the Flutter theme). Shown
+         for a split second while the app starts, so there's no flash. -->
+    <color name="app_background">#F6F7F9</color>
+</resources>

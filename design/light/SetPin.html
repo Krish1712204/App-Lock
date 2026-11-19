@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Create backup PIN (light)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F6F7F9}
+a{color:#0F766E}a:hover{color:#115E59}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 20px 24px 32px; display: flex; flex-direction: column; background: #F6F7F9; color: #12161C; font-family: Inter, system-ui, sans-serif">
+  <div style="display: flex; align-items: center; justify-content: space-between; height: 48px">
+    <a href="LightMain.dc.html" aria-label="Back" style="width: 44px; height: 44px; margin-left: -10px; display: flex; align-items: center; justify-content: center; color: #12161C; border-radius: 22px">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+    </a>
+    <span style="font-size: 13px; font-weight: 500; color: #5B6573">Step 1 of 2</span>
+  </div>
+  <div style="display: flex; gap: 6px; margin: 8px 0 32px">
+    <span style="flex-grow: 1; height: 4px; border-radius: 2px; background: {{accent}}"></span>
+    <span style="flex-grow: 1; height: 4px; border-radius: 2px; background: #D5DAE1"></span>
+  </div>
+  <h1 style="margin: 0 0 10px; font-family: 'Space Grotesk', sans-serif; font-size: 28px; line-height: 1.2; font-weight: 700; letter-spacing: -0.4px">Create a backup PIN</h1>
+  <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #5B6573">You’ll use this when your fingerprint doesn’t work. Use 4 to 6 numbers.</p>
+  <div style="display: flex; justify-content: center; gap: 16px; margin: 44px 0 12px" aria-label="PIN digits entered: {{count}}">
+    <sc-for list="{{dots}}" as="dot" hint-placeholder-count="6">
+      <sc-if value="{{dot.on}}" hint-placeholder-val="{{ false }}">
+        <span style="width: 16px; height: 16px; border-radius: 8px; background: {{dot.accent}}"></span>
+      </sc-if>
+      <sc-if value="{{dot.off}}" hint-placeholder-val="{{ true }}">
+        <span style="width: 16px; height: 16px; border-radius: 8px; box-sizing: border-box; border: 2px solid #B8C0CB"></span>
+      </sc-if>
+    </sc-for>
+  </div>
+  <p style="margin: 0; text-align: center; font-size: 13px; color: #5B6573; min-height: 20px">{{hint}}</p>
+  <div style="flex-grow: 1"></div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px">
+    <sc-for list="{{keys}}" as="k" hint-placeholder-count="12">
+      <sc-if value="{{k.isDigit}}" hint-placeholder-val="{{ true }}">
+        <button type="button" onClick="{{k.press}}" style="height: 64px; border: 0; border-radius: 20px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,24,40,0.10); color: #12161C; font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 500; cursor: pointer">{{k.label}}</button>
+      </sc-if>
+      <sc-if value="{{k.isBack}}" hint-placeholder-val="{{ false }}">
+        <button type="button" onClick="{{k.press}}" aria-label="Delete last digit" style="height: 64px; border: 0; border-radius: 20px; background: transparent; color: #12161C; display: flex; align-items: center; justify-content: center; cursor: pointer">
+          <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5a2 2 0 0 0-1.344.519l-6.328 5.74a1 1 0 0 0 0 1.481l6.328 5.741A2 2 0 0 0 10 19h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z"></path><path d="m12 9 6 6"></path><path d="m18 9-6 6"></path></svg>
+        </button>
+      </sc-if>
+      <sc-if value="{{k.isBlank}}" hint-placeholder-val="{{ false }}">
+        <span></span>
+      </sc-if>
+    </sc-for>
+  </div>
+  <sc-if value="{{ready}}" hint-placeholder-val="{{ false }}">
+    <a href="LightPermissions.dc.html" style="display: flex; align-items: center; justify-content: center; height: 56px; border-radius: 28px; background: {{accent}}; color: #FFFFFF; font-weight: 600; font-size: 16px; text-decoration: none">Continue</a>
+  </sc-if>
+  <sc-if value="{{notReady}}" hint-placeholder-val="{{ true }}">
+    <button type="button" disabled style="height: 56px; border: 0; border-radius: 28px; background: #EEF1F4; color: #5B6573; font-family: Inter, system-ui, sans-serif; font-weight: 600; font-size: 16px">Continue</button>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#0F766E","options":["#0F766E","#2563EB","#B45309","#7C3AED"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { pin: '' };
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#0F766E';
+    const pin = (this.state && this.state.pin) || '';
+    const dots = [0, 1, 2, 3, 4, 5].map((i) => ({ on: i < pin.length, off: i >= pin.length, accent }));
+    const add = (d) => () => { if (pin.length < 6) this.setState({ pin: pin + d }); };
+    const back = () => this.setState({ pin: pin.slice(0, -1) });
+    const digit = (d) => ({ label: d, isDigit: true, isBack: false, isBlank: false, press: add(d) });
+    const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(digit);
+    keys.push({ label: '', isDigit: false, isBack: false, isBlank: true, press: null });
+    keys.push(digit('0'));
+    keys.push({ label: '', isDigit: false, isBack: true, isBlank: false, press: back });
+    let hint = 'Tip: avoid 1234 or your birth year';
+    if (pin.length > 0 && pin.length < 4) hint = (4 - pin.length) + ' more to go';
+    if (pin.length >= 4) hint = 'Looks good';
+    return { accent, dots, keys, hint, count: pin.length, ready: pin.length >= 4, notReady: pin.length < 4 };
+  }
+}
+</script>
+</body>
+</html>

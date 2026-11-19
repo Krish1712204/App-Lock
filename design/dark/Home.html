@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Home — choose apps to lock</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#0D1014}
+a{color:#5EEAD4}a:hover{color:#99F6E4}
+input::placeholder{color:#9AA3AF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 20px 20px 0; display: flex; flex-direction: column; background: #0D1014; color: #EEF1F5; font-family: Inter, system-ui, sans-serif">
+  <div style="display: flex; align-items: center; justify-content: space-between; height: 52px">
+    <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.4px">App Lock</h1>
+    <a href="Settings.dc.html" aria-label="Settings" style="width: 44px; height: 44px; margin-right: -6px; display: flex; align-items: center; justify-content: center; border-radius: 22px; background: #161A20; color: #EEF1F5">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"></line><line x1="10" x2="3" y1="4" y2="4"></line><line x1="21" x2="12" y1="12" y2="12"></line><line x1="8" x2="3" y1="12" y2="12"></line><line x1="21" x2="16" y1="20" y2="20"></line><line x1="12" x2="3" y1="20" y2="20"></line><line x1="14" x2="14" y1="2" y2="6"></line><line x1="8" x2="8" y1="10" y2="14"></line><line x1="16" x2="16" y1="18" y2="22"></line></svg>
+    </a>
+  </div>
+
+  <div style="margin-top: 12px; padding: 18px; border-radius: 22px; background: #161A20; border: 1px solid #232831; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; gap: 14px">
+      <span style="width: 48px; height: 48px; flex-shrink: 0; border-radius: 16px; background: #1E232B; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{shieldColor}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>
+      </span>
+      <span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1">
+        <span style="font-size: 17px; font-weight: 600">{{statusTitle}}</span>
+        <span style="font-size: 13px; color: #9AA3AF">{{statusSub}}</span>
+      </span>
+      <button type="button" role="switch" aria-checked="{{on}}" aria-label="App Lock protection" onClick="{{toggleMaster}}" style="border: 0; padding: 0; background: transparent; cursor: pointer; width: 52px; height: 44px; display: flex; align-items: center; justify-content: center">
+        <sc-if value="{{on}}" hint-placeholder-val="{{ true }}">
+          <span style="width: 48px; height: 28px; border-radius: 14px; background: {{accent}}; display: flex; align-items: center; justify-content: flex-end; padding: 3px; box-sizing: border-box"><span style="width: 22px; height: 22px; border-radius: 11px; background: #0D1014"></span></span>
+        </sc-if>
+        <sc-if value="{{off}}" hint-placeholder-val="{{ false }}">
+          <span style="width: 48px; height: 28px; border-radius: 14px; background: #2A303A; display: flex; align-items: center; justify-content: flex-start; padding: 3px; box-sizing: border-box"><span style="width: 22px; height: 22px; border-radius: 11px; background: #9AA3AF"></span></span>
+        </sc-if>
+      </button>
+    </div>
+    <a href="LockScreen.dc.html" style="align-self: flex-start; font-size: 14px; font-weight: 500; color: {{accent}}; text-decoration: none">Preview the lock screen →</a>
+  </div>
+
+  <label style="margin-top: 16px; height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-radius: 24px; background: #161A20; border: 1px solid #232831">
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+    <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search apps</span>
+    <input type="text" placeholder="Search apps" value="{{q}}" onChange="{{onSearch}}" style="flex-grow: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; color: #EEF1F5; font-family: Inter, system-ui, sans-serif; font-size: 15px">
+  </label>
+
+  <div style="flex-grow: 1; min-height: 0; overflow-y: auto; margin: 8px -20px 0; padding: 0 20px 24px">
+    <sc-if value="{{hasLocked}}" hint-placeholder-val="{{ true }}">
+      <h2 style="margin: 16px 0 6px; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #9AA3AF">Locked · {{lockedCount}}</h2>
+      <sc-for list="{{lockedApps}}" as="app" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 14px; height: 64px">
+          <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 14px; background: {{app.color}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700">{{app.letter}}</span>
+          <span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0">
+            <span style="font-size: 15px; font-weight: 500">{{app.name}}</span>
+            <span style="font-size: 13px; color: {{app.accent}}">Needs fingerprint</span>
+          </span>
+          <button type="button" role="switch" aria-checked="{{app.on}}" aria-label="Lock {{app.name}}" onClick="{{app.toggle}}" style="border: 0; padding: 0; background: transparent; cursor: pointer; width: 52px; height: 44px; display: flex; align-items: center; justify-content: center">
+            <span style="width: 48px; height: 28px; border-radius: 14px; background: {{app.accent}}; display: flex; align-items: center; justify-content: flex-end; padding: 3px; box-sizing: border-box"><span style="width: 22px; height: 22px; border-radius: 11px; background: #0D1014"></span></span>
+          </button>
+        </div>
+      </sc-for>
+    </sc-if>
+
+    <sc-if value="{{hasOther}}" hint-placeholder-val="{{ true }}">
+      <h2 style="margin: 16px 0 6px; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #9AA3AF">Other apps · {{otherCount}}</h2>
+      <sc-for list="{{otherApps}}" as="app" hint-placeholder-count="6">
+        <div style="display: flex; align-items: center; gap: 14px; height: 64px">
+          <span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 14px; background: {{app.color}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700">{{app.letter}}</span>
+          <span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0">
+            <span style="font-size: 15px; font-weight: 500">{{app.name}}</span>
+            <span style="font-size: 13px; color: #9AA3AF">Not locked</span>
+          </span>
+          <button type="button" role="switch" aria-checked="{{app.on}}" aria-label="Lock {{app.name}}" onClick="{{app.toggle}}" style="border: 0; padding: 0; background: transparent; cursor: pointer; width: 52px; height: 44px; display: flex; align-items: center; justify-content: center">
+            <span style="width: 48px; height: 28px; border-radius: 14px; background: #2A303A; display: flex; align-items: center; justify-content: flex-start; padding: 3px; box-sizing: border-box"><span style="width: 22px; height: 22px; border-radius: 11px; background: #9AA3AF"></span></span>
+          </button>
+        </div>
+      </sc-for>
+    </sc-if>
+
+    <sc-if value="{{noResults}}" hint-placeholder-val="{{ false }}">
+      <p style="margin: 48px 0 0; text-align: center; font-size: 15px; color: #9AA3AF">No apps match “{{q}}”</p>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#5EEAD4","options":["#5EEAD4","#8AB4FF","#FBBF24","#C4B5FD"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      on: true,
+      q: '',
+      locked: { whatsapp: true, gallery: true, instagram: true, gpay: true, phonepe: true, settings: true }
+    };
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#5EEAD4';
+    const st = this.state || {};
+    const on = st.on !== false;
+    const q = st.q || '';
+    const locked = st.locked || {};
+    const apps = [
+      { id: 'whatsapp', name: 'WhatsApp', color: '#2F7D55' },
+      { id: 'gallery', name: 'Gallery', color: '#9C5B1E' },
+      { id: 'instagram', name: 'Instagram', color: '#A63D6B' },
+      { id: 'gpay', name: 'Google Pay', color: '#2B5FA8' },
+      { id: 'phonepe', name: 'PhonePe', color: '#5B3FA6' },
+      { id: 'settings', name: 'Settings', color: '#4A5361' },
+      { id: 'gmail', name: 'Gmail', color: '#A83A32' },
+      { id: 'telegram', name: 'Telegram', color: '#24719C' },
+      { id: 'files', name: 'Files', color: '#2D6E6A' },
+      { id: 'chrome', name: 'Chrome', color: '#8A6A14' },
+      { id: 'youtube', name: 'YouTube', color: '#A33030' },
+      { id: 'messages', name: 'Messages', color: '#3A5A9C' }
+    ];
+    const match = (a) => a.name.toLowerCase().indexOf(q.trim().toLowerCase()) !== -1;
+    const toItem = (a) => ({
+      ...a,
+      letter: a.name.charAt(0),
+      accent,
+      on: !!locked[a.id],
+      toggle: () => this.setState({ locked: { ...locked, [a.id]: !locked[a.id] } })
+    });
+    const lockedApps = apps.filter((a) => locked[a.id] && match(a)).map(toItem);
+    const otherApps = apps.filter((a) => !locked[a.id] && match(a)).map(toItem);
+    const total = apps.filter((a) => locked[a.id]).length;
+    return {
+      accent,
+      on,
+      off: !on,
+      q,
+      onSearch: (e) => this.setState({ q: e.target.value }),
+      toggleMaster: () => this.setState({ on: !on }),
+      shieldColor: on ? accent : '#9AA3AF',
+      statusTitle: on ? 'Protection is on' : 'Protection is paused',
+      statusSub: on ? total + ' apps locked' : 'Locked apps open without a check',
+      lockedApps,
+      otherApps,
+      lockedCount: lockedApps.length,
+      otherCount: otherApps.length,
+      hasLocked: lockedApps.length > 0,
+      hasOther: otherApps.length > 0,
+      noResults: lockedApps.length === 0 && otherApps.length === 0
+    };
+  }
+}
+</script>
+</body>
+</html>

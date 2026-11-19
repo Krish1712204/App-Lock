@@ -1,0 +1,45 @@
+name: applock
+description: "Lock chosen apps with fingerprint and a backup PIN."
+# Personal app: never published to pub.dev.
+publish_to: 'none'
+
+# version: <name>+<build number>. Android shows the name, and uses the build
+# number to know which install is newer.
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Draws the exact SVG icons from the HTML designs.
+  flutter_svg: ^2.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Fonts are bundled inside the app (not downloaded at runtime), so the app
+  # works offline and the lock screen never flashes a fallback font.
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+    - family: SpaceGrotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/SpaceGrotesk-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/SpaceGrotesk-Bold.ttf
+          weight: 700

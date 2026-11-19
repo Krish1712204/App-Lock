@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lock screen — PIN, wrong try (light)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F6F7F9}
+a{color:#0F766E}a:hover{color:#115E59}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 72px 28px 32px; display: flex; flex-direction: column; align-items: center; background: #F6F7F9; color: #12161C; font-family: Inter, system-ui, sans-serif">
+  <span style="width: 60px; height: 60px; border-radius: 19px; background: #2F7D55; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700">W</span>
+  <h1 style="margin: 20px 0 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 600; text-align: center">Enter PIN to open WhatsApp</h1>
+
+  <div style="display: flex; justify-content: center; gap: 16px; margin: 36px 0 14px">
+    <span style="width: 16px; height: 16px; border-radius: 8px; background: #C42B2B"></span>
+    <span style="width: 16px; height: 16px; border-radius: 8px; background: #C42B2B"></span>
+    <span style="width: 16px; height: 16px; border-radius: 8px; background: #C42B2B"></span>
+    <span style="width: 16px; height: 16px; border-radius: 8px; background: #C42B2B"></span>
+  </div>
+  <p role="alert" style="margin: 0; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: #C42B2B">
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+    Wrong PIN · 3 tries left
+  </p>
+
+  <div style="flex-grow: 1"></div>
+
+  <div style="width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 20px; justify-items: center">
+    <button type="button" style="width: 76px; height: 76px; border: 0; border-radius: 38px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,24,40,0.10); color: #12161C; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 500">1</button>
+    <button type="button" style="width: 76px; height: 76px; border: 0; border-radius: 38px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,24,40,0.10); color: #12161C; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 500">2</button>
+    <button type="button" style="width: 76px; height: 76px; border: 0; border-radius: 38px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,24,40,0.10); color: #12161C; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 500">3</button>
+    <button type="button" style="width: 76px; height: 76px; border: 0; border-radius: 38px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,24,40,0.10); color: #12161C; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 500">4</button>
+    <button type="button" style="width: 76px; height: 76px; border: 0; border-radius: 38px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,24,40,0.10); color: #12161C; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 500">5</button>
+    <button type="button" style="width: 76px; height: 76px; border: 0; border-radius: 38px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,24,40,0.10); color: #12161C; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 500">6</button>
+    <button type="button" style="width: 76px; height: 76px; border: 0; border-radius: 38px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,24,40,0.10); color: #12161C; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 500">7</button>
+    <button type="button" style="width: 76px; height: 76px; border: 0; border-radius: 38px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,24,40,0.10); color: #12161C; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 500">8</button>
+    <button type="button" style="width: 76px; height: 76px; border: 0; border-radius: 38px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,24,40,0.10); color: #12161C; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 500">9</button>
+    <a href="LightLockScreen.dc.html" aria-label="Use fingerprint instead" style="width: 76px; height: 76px; border-radius: 38px; display: flex; align-items: center; justify-content: center; color: {{accent}}">
+      <svg aria-hidden="true" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"></path><path d="M14 13.12c0 2.38 0 6.38-1 8.88"></path><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"></path><path d="M2 12a10 10 0 0 1 18-6"></path><path d="M2 16h.01"></path><path d="M21.8 16c.2-2 .131-5.354 0-6"></path><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2"></path><path d="M8.65 22c.21-.66.45-1.32.57-2"></path><path d="M9 6.8a6 6 0 0 1 9 5.2v2"></path></svg>
+    </a>
+    <button type="button" style="width: 76px; height: 76px; border: 0; border-radius: 38px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,24,40,0.10); color: #12161C; font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 500">0</button>
+    <button type="button" aria-label="Delete last digit" style="width: 76px; height: 76px; border: 0; border-radius: 38px; background: transparent; color: #12161C; display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5a2 2 0 0 0-1.344.519l-6.328 5.74a1 1 0 0 0 0 1.481l6.328 5.741A2 2 0 0 0 10 19h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z"></path><path d="m12 9 6 6"></path><path d="m18 9-6 6"></path></svg>
+    </button>
+  </div>
+
+  <a href="LightLockScreen.dc.html" style="margin-top: 28px; min-height: 44px; display: flex; align-items: center; font-size: 14px; font-weight: 500; color: {{accent}}; text-decoration: none; text-align: center">Forgot PIN? Use your phone’s screen lock</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#0F766E","options":["#0F766E","#2563EB","#B45309","#7C3AED"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#0F766E' };
+  }
+}
+</script>
+</body>
+</html>
