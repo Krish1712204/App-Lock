@@ -1,5 +1,6 @@
 package com.krishna.applock
 
+import android.app.Activity
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -49,6 +50,25 @@ object NativeChannel {
                 "setProtectionOn" -> {
                     val on = call.argument<Boolean>("on") ?: true
                     LockedAppsStore.setProtectionOn(appContext, on)
+                    result.success(null)
+                }
+
+                "getSettings" ->
+                    result.success(SettingsStore.all(appContext))
+
+                "setSetting" -> {
+                    val key = call.argument<String>("key") ?: ""
+                    val value = call.argument<Any>("value")
+                    SettingsStore.set(appContext, key, value)
+                    when (key) {
+                        // Apply "Hide previews" right away to the open screen.
+                        SettingsStore.HIDE_RECENTS ->
+                            (context as? Activity)?.let { SecureScreen.apply(it) }
+                        // A PIN was just created and you're inside App Lock:
+                        // don't lock App Lock on you straight away.
+                        SettingsStore.SETUP_DONE ->
+                            if (value == true) UnlockSession.markInside(appContext.packageName)
+                    }
                     result.success(null)
                 }
 

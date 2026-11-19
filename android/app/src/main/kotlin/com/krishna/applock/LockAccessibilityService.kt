@@ -54,6 +54,7 @@ class LockAccessibilityService : AccessibilityService() {
             registerReceiver(screenOffReceiver, filter)
         }
         LockEngine.warmUp(this) // normally already warm (AppLockApplication)
+        UnlockSession.endHandOff() // start clean
         isRunning = true
         Log.d(TAG, "Watcher started. Overlays: $overlayPackages, launchers: $launcherPackages")
     }
@@ -76,37 +77,72 @@ class LockAccessibilityService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
 
         // Our own lock screen covering an app: you haven't left that app.
-        if (pkg == packageName && event.className == LockActivity::class.java.name) return
+        if (pkg == packageName && event.className?.toString() == LockActivity::class.java.name) return
         // A popup over the current app (keyboard, notifications...): same.
         if (pkg in overlayPackages) return
         // Still the same app in front (it just opened another screen).
         if (pkg == foregroundPackage) return
 
-        // A different app is now in front, so you left the previous one:
-        // lock it again. ("Right away" for now; Phase 6 adds the timer.)
-        foregroundPackage?.let { UnlockSession.relock(it) }
+        // A different app is now in front, so you left the previous one.
+        val previous = foregroundPackage
         foregroundPackage = pkg
+        onLeft(previous, pkg)
 
-        if (pkg in launcherPackages) return // home screen / Recent apps
-        if (pkg == packageName) return // App Lock's own normal screens
+        if (pkg in launcherPackages) return // home screen / Recent apps: never locked
         lockIfNeeded(pkg)
     }
 
-    // Shows the lock screen if this app is locked and not unlocked yet.
+    // You went from [previous] to [now]: start the relock timer of [previous].
+    // Special case: a settings page App Lock opened for you ("hand-off").
+    private fun onLeft(previous: String?, now: String) {
+        if (previous == null) return
+        val handOff = UnlockSession.handOff
+        when {
+            // App Lock → the page it opened: App Lock stays unlocked.
+            previous == packageName && now == handOff -> Unit
+
+            // Leaving that page: it's over. If you didn't go back to
+            // App Lock, App Lock counts as left too.
+            previous == handOff -> {
+                UnlockSession.left(previous)
+                UnlockSession.endHandOff()
+                if (now != packageName) UnlockSession.left(packageName)
+            }
+
+            else -> UnlockSession.left(previous)
+        }
+    }
+
+    // Should this app be covered by the lock screen at all?
+    private fun isLockTarget(pkg: String): Boolean {
+        // App Lock itself: always locked once a PIN exists (even if the
+        // master switch is off, so nobody can just switch it back on/off).
+        if (pkg == packageName) return SettingsStore.isOn(this, SettingsStore.SETUP_DONE)
+
+        if (!LockedAppsStore.isProtectionOn(this)) return false // master switch is off
+        if (pkg in LockedAppsStore.getLocked(this)) return true // you locked it on Home
+        // "Lock Settings & Play Store" (+ the uninstall dialog).
+        return SettingsStore.isOn(this, SettingsStore.LOCK_SYSTEM_APPS) && pkg in SYSTEM_APPS
+    }
+
+    // Shows the lock screen if this app is locked and not unlocked (in time).
     private fun lockIfNeeded(pkg: String) {
-        if (!LockedAppsStore.isProtectionOn(this)) return // master switch is off
-        if (pkg !in LockedAppsStore.getLocked(this)) return // not a locked app
-        if (UnlockSession.isUnlocked(pkg)) return // you already unlocked it
+        if (!isLockTarget(pkg)) return
+        if (UnlockSession.isUnlocked(pkg, SettingsStore.relockDelayMs(this))) {
+            UnlockSession.markInside(pkg) // came back in time: no lock
+            return
+        }
         Log.d(TAG, "Locking $pkg")
         LockActivity.start(this, pkg)
     }
 
-    // Screen turned off: every app needs a new check. If you were inside a
-    // locked app, put the lock on top now, so it's already there when you
-    // turn the screen back on (instead of the app flashing first).
+    // Screen turned off. If "Lock when screen turns off" is on, every app
+    // needs a new check. If you were inside a locked app, put the lock on top
+    // now, so it's already there when you turn the screen back on.
     private fun onScreenOff() {
+        if (!SettingsStore.isOn(this, SettingsStore.LOCK_ON_SCREEN_OFF)) return
         UnlockSession.relockAll()
-        foregroundPackage?.let { lockIfNeeded(it) }
+        foregroundPackage?.let { if (it !in launcherPackages) lockIfNeeded(it) }
     }
 
     // Required by Android; called if the system interrupts feedback.
@@ -133,11 +169,24 @@ class LockAccessibilityService : AccessibilityService() {
         @Suppress("DEPRECATION") // the newer overload needs Android 13+
         return packageManager.queryIntentActivities(home, 0)
             .map { it.activityInfo.packageName }
+            // Android Settings has a hidden emergency "home" screen
+            // (FallbackHome), so it answers this question too. It's not a
+            // real launcher, and it must stay lockable.
+            .filter { it != "com.android.settings" }
             .toSet()
     }
 
     companion object {
         private const val TAG = "AppLockWatcher" // filter logcat with this
+
+        // Locked when "Lock Settings & Play Store" is on. The package
+        // installer shows the "Uninstall?" dialog, so it's here too.
+        private val SYSTEM_APPS = setOf(
+            "com.android.settings",
+            "com.android.vending", // Play Store
+            "com.google.android.packageinstaller",
+            "com.android.packageinstaller",
+        )
 
         // True while the watcher is connected and working. Read by the
         // Health check. (@Volatile: safe to read from any thread.)

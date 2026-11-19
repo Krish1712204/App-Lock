@@ -29,12 +29,13 @@ class _LockAppState extends State<LockApp> {
       onResumedChanged: (resumed) => LockController.activityResumed.value = resumed,
     );
     // In case Kotlin asked before we were listening.
-    LockChannel.currentLock().then((app) {
-      if (app != null && mounted && _app == null) _show(app);
+    LockChannel.currentLock().then((lock) {
+      if (lock != null && mounted && _app == null) _show(lock.$1, lock.$2);
     });
   }
 
-  void _show(AppInfo app) {
+  void _show(AppInfo app, bool fingerprint) {
+    LockController.fingerprintEnabled = fingerprint;
     setState(() {
       _app = app;
       // A new number = a new key below = Flutter throws away the old lock
@@ -56,7 +57,11 @@ class _LockAppState extends State<LockApp> {
         app == null
             // Nothing to lock yet: an empty page in our background color.
             ? MaterialPageRoute<void>(builder: (_) => const Scaffold())
-            : onGenerateRoute(RouteSettings(name: Routes.lock, arguments: app)),
+            // Fingerprint off in Settings → straight to the PIN pad.
+            : onGenerateRoute(RouteSettings(
+                name: LockController.fingerprintEnabled ? Routes.lock : Routes.lockPin,
+                arguments: app,
+              )),
       ],
       onGenerateRoute: onGenerateRoute,
     );

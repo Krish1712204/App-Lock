@@ -11,13 +11,14 @@ class LockChannel {
   /// - showLock: a locked app was opened, show the lock for [AppInfo].
   /// - resumed / paused: LockActivity came on screen / went away.
   static void listen({
-    required void Function(AppInfo app) onShowLock,
+    required void Function(AppInfo app, bool fingerprint) onShowLock,
     required void Function(bool resumed) onResumedChanged,
   }) {
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
         case 'showLock':
-          onShowLock(AppInfo.fromMap(call.arguments as Map<Object?, Object?>));
+          final map = call.arguments as Map<Object?, Object?>;
+          onShowLock(AppInfo.fromMap(map), map['fingerprint'] as bool? ?? true);
         case 'resumed':
           onResumedChanged(true);
         case 'paused':
@@ -29,9 +30,10 @@ class LockChannel {
 
   /// The app being locked right now, if any. Used once at start-up, in case
   /// Kotlin sent "showLock" before Dart was listening.
-  static Future<AppInfo?> currentLock() async {
+  static Future<(AppInfo, bool)?> currentLock() async {
     final map = await _channel.invokeMapMethod<Object?, Object?>('currentLock');
-    return map == null ? null : AppInfo.fromMap(map);
+    if (map == null) return null;
+    return (AppInfo.fromMap(map), map['fingerprint'] as bool? ?? true);
   }
 
   /// Fingerprint/PIN was right: Kotlin remembers it and closes the lock.

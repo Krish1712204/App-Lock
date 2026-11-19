@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../data/fake_data.dart';
+import '../lock/lock_controller.dart';
 import '../routes.dart';
+import '../services/biometric_service.dart';
 import '../services/permissions_service.dart';
+import '../services/settings_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_icon.dart';
@@ -13,8 +15,8 @@ import 'set_pin_screen.dart';
 
 /// Screen 7 (design/Settings.html).
 ///
-/// Phase 1: switches only change in-memory values. Phase 6 makes them real.
-/// "Extras" is shown greyed out ("Coming later"), as agreed.
+/// Every switch is saved in Kotlin (SettingsStore.kt), where the watcher
+/// and the lock screen read it. "Extras" is greyed out ("Coming later").
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -25,13 +27,14 @@ class SettingsScreen extends StatefulWidget {
 // WidgetsBindingObserver: re-check the Health card when you come back
 // from Android settings.
 class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObserver {
-  final _s = FakeStore.instance;
+  AppSettings _settings = const AppSettings(); // defaults until loaded
   PermissionStatus? _health;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadSettings();
     _checkHealth();
   }
 
@@ -55,9 +58,40 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     }
   }
 
+  Future<void> _loadSettings() async {
+    try {
+      final settings = await SettingsService.load();
+      if (mounted) setState(() => _settings = settings);
+    } catch (_) {
+      // keep the defaults
+    }
+  }
+
+  /// Saves one setting in Kotlin, then reloads so the screen shows what
+  /// was really saved.
+  Future<void> _save(String key, Object value) async {
+    await SettingsService.set(key, value);
+    await _loadSettings();
+    LockController.fingerprintEnabled = _settings.fingerprintUnlock;
+  }
+
+  /// Fingerprint can only be turned on if one is saved on the phone.
+  Future<void> _setFingerprint(bool on) async {
+    if (on && !await BiometricService.instance.hasFingerprint()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('No fingerprint saved on this phone yet.'),
+        action: SnackBarAction(label: 'Add one', onPressed: () => PermissionsService.open(AppPermission.fingerprint)),
+      ));
+      return;
+    }
+    await _save(SettingsKeys.fingerprint, on);
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final s = _settings;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
@@ -99,18 +133,18 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                       ),
                       _SwitchRow(
                         title: 'Fingerprint unlock',
-                        value: _s.fingerprintUnlock,
-                        onChanged: (v) => setState(() => _s.fingerprintUnlock = v),
+                        value: s.fingerprintUnlock,
+                        onChanged: _setFingerprint,
                       ),
                       _RelockPicker(
-                        value: _s.relockDelay,
-                        onChanged: (v) => setState(() => _s.relockDelay = v),
+                        value: s.relockDelay,
+                        onChanged: (v) => _save(SettingsKeys.relockSeconds, v.seconds),
                       ),
                       _SwitchRow(
                         title: 'Lock when screen turns off',
                         subtitle: 'Every locked app needs a new check',
-                        value: _s.lockOnScreenOff,
-                        onChanged: (v) => setState(() => _s.lockOnScreenOff = v),
+                        value: s.lockOnScreenOff,
+                        onChanged: (v) => _save(SettingsKeys.lockOnScreenOff, v),
                       ),
                     ]),
                     const _GroupLabel('Protection'),
@@ -118,14 +152,16 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                       _SwitchRow(
                         title: 'Lock Settings & Play Store',
                         subtitle: 'So no one can uninstall App Lock',
-                        value: _s.lockSettingsAndStore,
-                        onChanged: (v) => setState(() => _s.lockSettingsAndStore = v),
+                        value: s.lockSystemApps,
+                        onChanged: (v) => _save(SettingsKeys.lockSystemApps, v),
                       ),
+                      // Android only lets an app hide ITS OWN screens from
+                      // Recents, so this text says exactly that.
                       _SwitchRow(
                         title: 'Hide previews in Recent apps',
-                        subtitle: 'Locked apps show a blank card',
-                        value: _s.hideRecentsPreview,
-                        onChanged: (v) => setState(() => _s.hideRecentsPreview = v),
+                        subtitle: 'App Lock’s screens show a blank card',
+                        value: s.hideRecents,
+                        onChanged: (v) => _save(SettingsKeys.hideRecents, v),
                       ),
                     ]),
                     const _GroupLabel('Extras', badge: 'Coming later'),

@@ -36,6 +36,13 @@ class NativeBridge {
   static Future<void> setProtectionOn(bool on) =>
       _channel.invokeMethod('setProtectionOn', {'on': on});
 
+  /// All settings from Kotlin (SettingsStore.kt), e.g. {"relockSeconds": 60}.
+  static Future<Map<String, Object?>> getSettings() async =>
+      await _channel.invokeMapMethod<String, Object?>('getSettings') ?? const {};
+
+  static Future<void> setSetting(String key, Object value) =>
+      _channel.invokeMethod('setSetting', {'key': key, 'value': value});
+
   /// Real permission status from Kotlin (PermissionsHelper.kt):
   /// accessibility, watcherRunning, overlay, battery → true/false.
   static Future<Map<String, bool>> getPermissions() async {

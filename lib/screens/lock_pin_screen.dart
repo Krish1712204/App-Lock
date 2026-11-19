@@ -221,7 +221,10 @@ class _LockPinScreenState extends State<LockPinScreen> {
                     style: KeypadStyle.round,
                     onDigit: _addDigit,
                     onDelete: _deleteDigit,
-                    onFingerprint: () => Navigator.pushReplacementNamed(context, Routes.lock, arguments: app),
+                    // Hidden when fingerprint unlock is off in Settings.
+                    onFingerprint: LockController.fingerprintEnabled
+                        ? () => Navigator.pushReplacementNamed(context, Routes.lock, arguments: app)
+                        : null,
                   ),
                 ),
                 const SizedBox(height: 28),

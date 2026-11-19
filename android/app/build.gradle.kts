@@ -47,3 +47,9 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // JUnit: runs plain Kotlin tests on the computer (src/test), no phone
+    // needed. Run them with: cd android; .\gradlew testDebugUnitTest
+    testImplementation("junit:junit:4.13.2")
+}

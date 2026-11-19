@@ -5,6 +5,7 @@ import 'lock/lock_app.dart';
 import 'lock/lock_controller.dart';
 import 'routes.dart';
 import 'services/pin_store.dart';
+import 'services/settings_service.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -15,6 +16,16 @@ Future<void> main() async {
 
   // If a PIN was already set up, skip the Welcome/setup screens.
   final setupDone = await PinStore.instance.hasPin();
+  if (setupDone) {
+    try {
+      // Tell Kotlin a PIN exists (so App Lock locks itself), and read the
+      // fingerprint setting for the lock preview.
+      await SettingsService.set(SettingsKeys.setupDone, true);
+      LockController.fingerprintEnabled = (await SettingsService.load()).fingerprintUnlock;
+    } catch (_) {
+      // Kotlin not reachable (shouldn't happen): keep the defaults.
+    }
+  }
 
   runApp(AppLockApp(startAtHome: setupDone));
 }

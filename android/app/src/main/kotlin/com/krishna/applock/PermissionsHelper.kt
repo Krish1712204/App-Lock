@@ -70,8 +70,14 @@ object PermissionsHelper {
 
             else -> appInfo(pkgUri) // "appInfo": App Lock's App info page
         }
+        // All these pages belong to Android's Settings app. App Lock opens
+        // them for you, so don't lock Settings for this visit, and don't
+        // count it as leaving App Lock.
+        UnlockSession.startHandOff(SETTINGS_PACKAGE)
         return start(context, intent) || start(context, appInfo(pkgUri))
     }
+
+    private const val SETTINGS_PACKAGE = "com.android.settings"
 
     // Android's popup: "Let app always run in background?" → Allow.
     // (Google limits this for Play Store apps; fine for a personal APK.)

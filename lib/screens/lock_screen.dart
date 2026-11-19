@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_info.dart';
-import '../data/fake_data.dart';
 import '../lock/lock_controller.dart';
 import '../routes.dart';
 import '../services/biometric_service.dart';
@@ -51,7 +50,7 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    if (!FakeStore.instance.fingerprintUnlock) return;
+    if (!LockController.fingerprintEnabled) return; // Settings: fingerprint off
 
     if (LockController.isRealLock) {
       // Real lock: Android can only show the popup while LockActivity is on

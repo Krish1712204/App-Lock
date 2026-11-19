@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_info.dart';
+import '../lock/lock_controller.dart';
 import '../routes.dart';
 import '../services/native_bridge.dart';
 import '../services/permissions_service.dart';
@@ -101,7 +102,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final apps = _apps ?? const <AppInfo>[];
     final lockedApps = apps.where((a) => _locked.contains(a.packageName));
     final app = lockedApps.isNotEmpty ? lockedApps.first : (apps.isNotEmpty ? apps.first : null);
-    Navigator.pushNamed(context, Routes.lock, arguments: app);
+    // Fingerprint off in Settings → preview the PIN pad instead.
+    Navigator.pushNamed(context, LockController.fingerprintEnabled ? Routes.lock : Routes.lockPin, arguments: app);
   }
 
   @override

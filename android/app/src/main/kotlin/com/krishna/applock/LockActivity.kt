@@ -49,6 +49,7 @@ class LockActivity : FlutterFragmentActivity() {
         LockEngine.warmUp(this)
         intent.getStringExtra(EXTRA_PACKAGE)?.let { LockEngine.showLock(this, it) }
         super.onCreate(savedInstanceState)
+        SecureScreen.apply(this) // "Hide previews in Recent apps"
         current = this
         skipAnimation(opening = true)
     }

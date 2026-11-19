@@ -49,9 +49,11 @@ object LockEngine {
         return engine
     }
 
-    // Tells Dart which app to show on the lock screen.
+    // Tells Dart which app to show on the lock screen, and whether to use
+    // the fingerprint (Settings → Fingerprint unlock) or go straight to PIN.
     fun showLock(context: Context, packageName: String) {
-        currentLock = InstalledApps.loadOne(context, packageName)
+        currentLock = InstalledApps.loadOne(context, packageName) +
+            ("fingerprint" to SettingsStore.isOn(context, SettingsStore.FINGERPRINT))
         channel?.invokeMethod("showLock", currentLock)
     }
 
@@ -67,7 +69,7 @@ object LockEngine {
 
             "unlocked" -> {
                 // Fingerprint or PIN was correct: remember it and close the lock.
-                call.argument<String>("packageName")?.let { UnlockSession.markUnlocked(it) }
+                call.argument<String>("packageName")?.let { UnlockSession.markInside(it) }
                 currentLock = null
                 LockActivity.current?.closeLock()
                 result.success(null)

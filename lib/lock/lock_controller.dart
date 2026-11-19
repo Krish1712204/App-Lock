@@ -16,6 +16,12 @@ class LockController {
   /// popup can only be opened then.
   static final activityResumed = ValueNotifier<bool>(false);
 
+  /// Settings → "Fingerprint unlock". When false, the lock goes straight to
+  /// the PIN pad and the fingerprint key is hidden.
+  /// (Real lock: Kotlin sends it with every lock. Main app: loaded at start
+  /// and updated when you change the switch.)
+  static bool fingerprintEnabled = true;
+
   /// Fingerprint or PIN was correct.
   static Future<void> unlocked(BuildContext context, AppInfo app) async {
     if (isRealLock) {

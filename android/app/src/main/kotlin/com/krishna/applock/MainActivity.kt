@@ -16,4 +16,11 @@ class MainActivity : FlutterFragmentActivity() {
         super.configureFlutterEngine(flutterEngine) // keeps the plugins working
         NativeChannel.register(this, flutterEngine.dartExecutor.binaryMessenger)
     }
+
+    // Every time App Lock comes to the front: apply "Hide previews in
+    // Recent apps" (it may have changed).
+    override fun onResume() {
+        super.onResume()
+        SecureScreen.apply(this)
+    }
 }
