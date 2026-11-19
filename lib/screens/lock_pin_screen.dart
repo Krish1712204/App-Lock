@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/app_info.dart';
+import '../lock/lock_controller.dart';
 import '../routes.dart';
 import '../services/biometric_service.dart';
 import '../services/pin_store.dart';
@@ -148,14 +149,11 @@ class _LockPinScreenState extends State<LockPinScreen> {
 
   void _unlocked() {
     _countdown?.cancel();
-    // Phase 2: still a preview opened from Home, so go back there.
-    // Phase 4: this will close the lock and show the real app.
-    Navigator.pop(context);
-    _toast('${widget.app.name} unlocked');
+    // Real lock: closes and shows the app. Preview: back to Home.
+    LockController.unlocked(context, widget.app);
   }
 
-  void _toast(String text) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  void _toast(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
   /// The red line under the dots (null = show nothing).
   String? get _message {
@@ -171,68 +169,78 @@ class _LockPinScreenState extends State<LockPinScreen> {
     final length = _pinLength ?? 4;
     final message = _message;
 
-    return Scaffold(
-      body: SafeArea(
-        child: FillScroll(
-          padding: const EdgeInsets.fromLTRB(28, 72, 28, 32),
-          child: Column(
-            children: [
-              AppTile(app: app, size: 60, radius: 19, fontSize: 26),
-              const SizedBox(height: 20),
-              Text(
-                'Enter PIN to open ${app.name}',
-                textAlign: TextAlign.center,
-                style: AppText.heading(22, weight: FontWeight.w600, color: c.text),
-              ),
-              const SizedBox(height: 36),
-              PinDots(total: length, filled: _wrong ? length : _entered.length, error: _wrong),
-              const SizedBox(height: 14),
-              // Always reserve this space, so the layout doesn't jump.
-              SizedBox(
-                height: 20,
-                child: message == null
-                    ? null
-                    : Semantics(
-                        liveRegion: true, // TalkBack reads it out, like role="alert"
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppIcon(AppIcons.alertTriangle, size: 16, color: c.error),
-                            const SizedBox(width: 6),
-                            Text(message, style: AppText.body(14, weight: FontWeight.w500, color: c.error)),
-                          ],
-                        ),
-                      ),
-              ),
-              const Spacer(),
-              const SizedBox(height: 32),
-              // Dim the keypad while it's paused.
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: _waitSeconds > 0 ? 0.4 : 1,
-                child: PinKeypad(
-                  style: KeypadStyle.round,
-                  onDigit: _addDigit,
-                  onDelete: _deleteDigit,
-                  onFingerprint: () => Navigator.pushReplacementNamed(context, Routes.lock, arguments: app),
+    // Real lock: Back goes to the home screen, never into the locked app.
+    return PopScope(
+      canPop: !LockController.isRealLock,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) LockController.back();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: FillScroll(
+            padding: const EdgeInsets.fromLTRB(28, 72, 28, 32),
+            child: Column(
+              children: [
+                AppTile(app: app, size: 60, radius: 19, fontSize: 26),
+                const SizedBox(height: 20),
+                Text(
+                  'Enter PIN to open ${app.name}',
+                  textAlign: TextAlign.center,
+                  style: AppText.heading(22, weight: FontWeight.w600, color: c.text),
                 ),
-              ),
-              const SizedBox(height: 28),
-              GestureDetector(
-                onTap: _useScreenLock,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  child: Center(
-                    widthFactor: 1,
-                    child: Text(
-                      'Forgot PIN? Use your phone’s screen lock',
-                      textAlign: TextAlign.center,
-                      style: AppText.body(14, weight: FontWeight.w500, color: c.accent),
+                const SizedBox(height: 36),
+                PinDots(total: length, filled: _wrong ? length : _entered.length, error: _wrong),
+                const SizedBox(height: 14),
+                // Always reserve this space, so the layout doesn't jump.
+                SizedBox(
+                  height: 20,
+                  child: message == null
+                      ? null
+                      : Semantics(
+                          liveRegion: true, // TalkBack reads it out, like role="alert"
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AppIcon(AppIcons.alertTriangle, size: 16, color: c.error),
+                              const SizedBox(width: 6),
+                              Text(
+                                message,
+                                style: AppText.body(14, weight: FontWeight.w500, color: c.error),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+                const Spacer(),
+                const SizedBox(height: 32),
+                // Dim the keypad while it's paused.
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: _waitSeconds > 0 ? 0.4 : 1,
+                  child: PinKeypad(
+                    style: KeypadStyle.round,
+                    onDigit: _addDigit,
+                    onDelete: _deleteDigit,
+                    onFingerprint: () => Navigator.pushReplacementNamed(context, Routes.lock, arguments: app),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                GestureDetector(
+                  onTap: _useScreenLock,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    child: Center(
+                      widthFactor: 1,
+                      child: Text(
+                        'Forgot PIN? Use your phone’s screen lock',
+                        textAlign: TextAlign.center,
+                        style: AppText.body(14, weight: FontWeight.w500, color: c.accent),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

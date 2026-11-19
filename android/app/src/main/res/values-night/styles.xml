@@ -15,4 +15,10 @@
     <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">@color/app_background</item>
     </style>
+    <!-- Theme for LockActivity: our background color from the very first
+         moment (before Flutter draws), so the locked app is covered at once. -->
+    <style name="LockTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>

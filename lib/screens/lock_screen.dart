@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/app_info.dart';
 import '../data/fake_data.dart';
+import '../lock/lock_controller.dart';
 import '../routes.dart';
 import '../services/biometric_service.dart';
 import '../services/pin_store.dart';
@@ -45,18 +46,42 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
 
   String? _problem; // shown in red under the sensor text, e.g. "No fingerprint saved"
   bool _asking = false; // true while the fingerprint popup is open
+  bool _autoAsked = false; // the popup opens by itself only ONCE per lock
 
   @override
   void initState() {
     super.initState();
-    // Wait until the screen has been drawn once, then show the popup.
-    if (FakeStore.instance.fingerprintUnlock) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _askFingerprint());
+    if (!FakeStore.instance.fingerprintUnlock) return;
+
+    if (LockController.isRealLock) {
+      // Real lock: Android can only show the popup while LockActivity is on
+      // screen. Ask now if it already is, otherwise as soon as it is.
+      LockController.activityResumed.addListener(_onResumedChanged);
+      _onResumedChanged();
+    } else {
+      // Preview: wait until the screen has been drawn once, then ask.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _autoAsk());
     }
+  }
+
+  void _onResumedChanged() {
+    if (LockController.activityResumed.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _autoAsk());
+    }
+  }
+
+  // Opens the popup by itself, but only once. (Closing the popup makes
+  // LockActivity "resume" again; without this guard, it would pop up again
+  // forever after every Cancel.)
+  void _autoAsk() {
+    if (_autoAsked || !mounted) return;
+    _autoAsked = true;
+    _askFingerprint();
   }
 
   @override
   void dispose() {
+    LockController.activityResumed.removeListener(_onResumedChanged);
     _pulse.dispose(); // always stop animations when the screen closes
     super.dispose();
   }
@@ -85,12 +110,8 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
   Future<void> _unlocked() async {
     await PinStore.instance.resetTries(); // a good unlock clears wrong PIN tries
     if (!mounted) return;
-    // Phase 2: this is still a preview opened from Home, so go back there.
-    // Phase 4: this will close the lock and show the real app.
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${widget.app.name} unlocked')),
-    );
+    // Real lock: closes and shows the app. Preview: back to Home.
+    await LockController.unlocked(context, widget.app);
   }
 
   @override
@@ -99,6 +120,18 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
     final app = widget.app;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
+    // Real lock: Back must never reveal the locked app, so we catch it
+    // (canPop: false) and go to the home screen instead.
+    return PopScope(
+      canPop: !LockController.isRealLock,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) LockController.back();
+      },
+      child: _buildScreen(c, app, reduceMotion),
+    );
+  }
+
+  Widget _buildScreen(AppColors c, AppInfo app, bool reduceMotion) {
     return Scaffold(
       body: SafeArea(
         child: FillScroll(
@@ -125,9 +158,7 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
                             width: 28,
                             height: 28,
                             decoration: BoxDecoration(color: c.accent, shape: BoxShape.circle),
-                            child: Center(
-                              child: AppIcon(AppIcons.lock, size: 15, strokeWidth: 2.5, color: c.onAccent),
-                            ),
+                            child: Center(child: AppIcon(AppIcons.lock, size: 15, strokeWidth: 2.5, color: c.onAccent)),
                           ),
                         ),
                       ),
@@ -142,7 +173,11 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
                 style: AppText.heading(26, letterSpacing: -0.3, color: c.text),
               ),
               const SizedBox(height: 8),
-              Text('Unlock to continue', textAlign: TextAlign.center, style: AppText.body(15, color: c.muted)),
+              Text(
+                'Unlock to continue',
+                textAlign: TextAlign.center,
+                style: AppText.body(15, color: c.muted),
+              ),
               const Spacer(),
               const SizedBox(height: 32),
               // Fingerprint circle with a pulsing ring around it.
@@ -161,22 +196,22 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
                         // Positioned.fill = take the full 96x96 of the Stack.
                         Positioned.fill(
                           child: AnimatedBuilder(
-                          animation: _pulse,
-                          builder: (context, _) {
-                            final t = Curves.easeOut.transform(_pulse.value);
-                            return Transform.scale(
-                              scale: reduceMotion ? 1 : 1 + 0.7 * t,
-                              child: Opacity(
-                                opacity: reduceMotion ? 0.25 : 0.55 * (1 - t),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: c.accent, width: 2),
+                            animation: _pulse,
+                            builder: (context, _) {
+                              final t = Curves.easeOut.transform(_pulse.value);
+                              return Transform.scale(
+                                scale: reduceMotion ? 1 : 1 + 0.7 * t,
+                                child: Opacity(
+                                  opacity: reduceMotion ? 0.25 : 0.55 * (1 - t),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: c.accent, width: 2),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
                           ),
                         ),
                         Positioned.fill(

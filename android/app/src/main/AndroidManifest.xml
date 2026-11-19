@@ -5,9 +5,11 @@
     <!-- allowBackup="false": the PIN hash is encrypted with a key that never
          leaves this phone, so a cloud backup of it would be useless anyway
          (and could break the app after a restore). -->
+    <!-- android:name: our AppLockApplication runs first when the app starts,
+         and pre-warms the lock screen's Flutter engine. -->
     <application
         android:label="App Lock"
-        android:name="${applicationName}"
+        android:name=".AppLockApplication"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false">
         <activity
@@ -32,6 +34,22 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <!-- The lock screen that covers locked apps (LockActivity.kt).
+             - singleInstance + own taskAffinity: lives in its own task, so
+               closing it shows the locked app underneath again.
+             - excludeFromRecents: never appears in Recent apps.
+             - exported="false": other apps can't open it. -->
+        <activity
+            android:name=".LockActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:taskAffinity="com.krishna.applock.lock"
+            android:excludeFromRecents="true"
+            android:theme="@style/LockTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- The watcher (LockAccessibilityService.kt). Only Android itself can
              connect to it, because of the BIND_ACCESSIBILITY_SERVICE permission.

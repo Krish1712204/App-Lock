@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'lock/lock_app.dart';
+import 'lock/lock_controller.dart';
 import 'routes.dart';
 import 'services/pin_store.dart';
 import 'theme/app_theme.dart';
@@ -15,6 +17,18 @@ Future<void> main() async {
   final setupDone = await PinStore.instance.hasPin();
 
   runApp(AppLockApp(startAtHome: setupDone));
+}
+
+/// The SECOND entry point, used only by the pre-warmed lock engine
+/// (LockEngine.kt runs it by name). It shows just the lock screens.
+///
+/// @pragma('vm:entry-point') tells the Dart compiler to keep this function
+/// even though no Dart code calls it (only Kotlin does).
+@pragma('vm:entry-point')
+void lockMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  LockController.isRealLock = true;
+  runApp(const LockApp());
 }
 
 class AppLockApp extends StatelessWidget {

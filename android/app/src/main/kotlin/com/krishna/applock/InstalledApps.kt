@@ -2,6 +2,7 @@ package com.krishna.applock
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
@@ -35,6 +36,23 @@ object InstalledApps {
                     "icon" to entry.loadIcon(pm).toPng(ICON_SIZE_PX),
                 )
             }
+    }
+
+    // Name and icon of ONE app (for the lock screen). Fast enough for the
+    // main thread: it draws a single icon.
+    fun loadOne(context: Context, packageName: String): Map<String, Any> {
+        val pm = context.packageManager
+        return try {
+            val info = pm.getApplicationInfo(packageName, 0)
+            mapOf(
+                "packageName" to packageName,
+                "name" to pm.getApplicationLabel(info).toString(),
+                "icon" to pm.getApplicationIcon(info).toPng(ICON_SIZE_PX),
+            )
+        } catch (e: PackageManager.NameNotFoundException) {
+            // App was just uninstalled: show the package name, no icon.
+            mapOf("packageName" to packageName, "name" to packageName)
+        }
     }
 
     // Draws an icon onto a square bitmap and saves it as PNG bytes.
