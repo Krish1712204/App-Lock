@@ -2,9 +2,11 @@ package com.krishna.applock
 
 import android.accessibilityservice.AccessibilityService
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -41,6 +43,12 @@ class LockAccessibilityService : AccessibilityService() {
         }
     }
 
+    // True for `flutter run` / debug APKs: then we log every event (for
+    // fixing bugs). Release APKs stay quiet.
+    private val isDebugBuild by lazy {
+        (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
+
     // Called once, when you turn the service on (or after a reboot).
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -75,11 +83,28 @@ class LockAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
+        val cls = event.className?.toString()
+        if (isDebugBuild) Log.v(TAG, "event pkg=$pkg class=$cls fg=$foregroundPackage")
 
-        // Our own lock screen covering an app: you haven't left that app.
-        if (pkg == packageName && event.className?.toString() == LockActivity::class.java.name) return
-        // A popup over the current app (keyboard, notifications...): same.
+        // A popup over the current app (keyboard, notifications...):
+        // you haven't left the app.
         if (pkg in overlayPackages) return
+
+        if (pkg == packageName) {
+            // App Lock itself. Only its main screen counts as "you opened
+            // App Lock". Everything else is our lock window covering an app
+            // (it also sends "android.widget.FrameLayout" events, which
+            // caused the lock loop).
+            if (LockActivity.isShowing || cls != MainActivity::class.java.name) return
+        } else if (pkg !in launcherPackages && !isRealScreen(pkg, cls)) {
+            // Not a real app screen (an Activity) but a floating layer: Edge
+            // lights, a toast, a bubble, a view inside a window... Those
+            // must not count as "you left the app" (with "Right away" that
+            // re-locked the app you had just unlocked).
+            // The home screen is the exception: any event from it counts.
+            return
+        }
+
         // Still the same app in front (it just opened another screen).
         if (pkg == foregroundPackage) return
 
@@ -90,6 +115,25 @@ class LockAccessibilityService : AccessibilityService() {
 
         if (pkg in launcherPackages) return // home screen / Recent apps: never locked
         lockIfNeeded(pkg)
+    }
+
+    // Remembered answers of isRealScreen(), so we ask Android only once
+    // per screen. ("package/class" → true/false)
+    private val realScreenCache = HashMap<String, Boolean>()
+
+    // Is this window a real app screen (an Activity listed in that app)?
+    // Floating layers report a View class here, e.g. "android.widget.FrameLayout".
+    private fun isRealScreen(pkg: String, cls: String?): Boolean {
+        if (cls.isNullOrEmpty()) return false
+        if (realScreenCache.size > 500) realScreenCache.clear() // keep memory small
+        return realScreenCache.getOrPut("$pkg/$cls") {
+            try {
+                packageManager.getActivityInfo(ComponentName(pkg, cls), 0)
+                true
+            } catch (e: PackageManager.NameNotFoundException) {
+                false // not an Activity (or an app we can't see)
+            }
+        }
     }
 
     // You went from [previous] to [now]: start the relock timer of [previous].
@@ -156,6 +200,12 @@ class LockAccessibilityService : AccessibilityService() {
             "com.android.intentresolver", // share sheet (Android 14+)
             "com.google.android.permissioncontroller", // "Allow access to photos?"
             "com.android.permissioncontroller",
+            // Photo picker and file picker: an app opens them to let you
+            // choose a file, then you're back in the same app.
+            "com.google.android.providers.media.module",
+            "com.android.providers.media.module",
+            "com.google.android.documentsui",
+            "com.android.documentsui",
         )
         // Keyboards: their window pops up over the app you're typing in.
         val imm = getSystemService(InputMethodManager::class.java)

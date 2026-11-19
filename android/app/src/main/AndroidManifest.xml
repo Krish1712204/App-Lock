@@ -102,5 +102,10 @@
             <action android:name="android.intent.action.MAIN"/>
             <category android:name="android.intent.category.HOME"/>
         </intent>
+        <!-- The "Uninstall?" dialog comes from the package installer, which
+             has no app-drawer icon. "Lock Settings & Play Store" locks it, so
+             the watcher must be able to see it. -->
+        <package android:name="com.google.android.packageinstaller"/>
+        <package android:name="com.android.packageinstaller"/>
     </queries>
 </manifest>

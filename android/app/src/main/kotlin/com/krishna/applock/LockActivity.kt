@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import io.flutter.embedding.android.FlutterFragmentActivity
 
 // The lock screen that covers a locked app.
@@ -26,8 +27,27 @@ class LockActivity : FlutterFragmentActivity() {
         var current: LockActivity? = null
             private set
 
+        // True from the moment the watcher asks for the lock until the lock
+        // screen is really gone (closed, or hidden with the Home button).
+        // The watcher uses it to tell "our lock screen is on top" apart from
+        // "you opened App Lock". (Checking the window's class name isn't
+        // enough: the lock window also sends events named
+        // "android.widget.FrameLayout", which caused the lock loop.)
+        val isShowing: Boolean
+            // "Visible", or "asked for less than 2 s ago and still opening".
+            // The 2 s limit means: if Android ever refused to open it, we
+            // don't wrongly think it's showing forever.
+            get() = visible || SystemClock.uptimeMillis() - requestedAt < 2_000
+
+        @Volatile
+        private var visible = false
+
+        @Volatile
+        private var requestedAt = 0L
+
         // Called by the watcher when a locked app comes to the front.
         fun start(context: Context, packageName: String) {
+            requestedAt = SystemClock.uptimeMillis()
             val intent = Intent(context, LockActivity::class.java)
                 .putExtra(EXTRA_PACKAGE, packageName)
                 .addFlags(
@@ -62,6 +82,21 @@ class LockActivity : FlutterFragmentActivity() {
         intent.getStringExtra(EXTRA_PACKAGE)?.let { LockEngine.showLock(this, it) }
     }
 
+    override fun onStart() {
+        super.onStart()
+        visible = true
+    }
+
+    // The lock is no longer visible (closed, or you pressed Home).
+    // A screen rotation also stops/starts it; that doesn't count.
+    override fun onStop() {
+        if (!isChangingConfigurations) {
+            visible = false
+            requestedAt = 0L
+        }
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
         current = this
@@ -74,7 +109,10 @@ class LockActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
-        if (current === this) current = null
+        if (current === this) {
+            current = null
+            visible = false
+        }
         super.onDestroy()
     }
 
