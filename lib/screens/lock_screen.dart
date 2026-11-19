@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../data/fake_data.dart';
 import '../routes.dart';
+import '../services/biometric_service.dart';
+import '../services/pin_store.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_icon.dart';
@@ -10,8 +12,9 @@ import '../widgets/common.dart';
 
 /// Screen 5 (design/LockScreen.html): "WhatsApp is locked" + fingerprint.
 ///
-/// Phase 1: tapping the fingerprint circle pretends the unlock worked.
-/// Phase 2 shows Android's real fingerprint prompt instead.
+/// When it opens, Android's fingerprint popup appears by itself.
+/// If you close the popup, tap the fingerprint circle to open it again.
+/// (Apps can't read the sensor directly; only Android's popup can.)
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key, required this.app});
 
@@ -39,16 +42,53 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
     }
   }
 
+  String? _problem; // shown in red under the sensor text, e.g. "No fingerprint saved"
+  bool _asking = false; // true while the fingerprint popup is open
+
+  @override
+  void initState() {
+    super.initState();
+    // Wait until the screen has been drawn once, then show the popup.
+    if (FakeStore.instance.fingerprintUnlock) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _askFingerprint());
+    }
+  }
+
   @override
   void dispose() {
     _pulse.dispose(); // always stop animations when the screen closes
     super.dispose();
   }
 
-  void _fakeUnlock() {
+  Future<void> _askFingerprint() async {
+    if (_asking) return; // the popup is already showing
+    _asking = true;
+    final result = await BiometricService.instance.fingerprint(title: 'Unlock ${widget.app.name}');
+    _asking = false;
+    if (!mounted) return;
+
+    switch (result) {
+      case AuthResult.success:
+        await _unlocked();
+      case AuthResult.cancelled:
+        setState(() => _problem = null); // you closed it: just wait
+      case AuthResult.unavailable:
+        setState(() => _problem = 'No fingerprint saved on this phone. Use your PIN.');
+      case AuthResult.lockedOut:
+        setState(() => _problem = 'Too many tries. Use your PIN for now.');
+      case AuthResult.error:
+        setState(() => _problem = 'Fingerprint didn’t work. Try again or use your PIN.');
+    }
+  }
+
+  Future<void> _unlocked() async {
+    await PinStore.instance.resetTries(); // a good unlock clears wrong PIN tries
+    if (!mounted) return;
+    // Phase 2: this is still a preview opened from Home, so go back there.
+    // Phase 4: this will close the lock and show the real app.
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${widget.app.name} unlocked (preview)')),
+      SnackBar(content: Text('${widget.app.name} unlocked')),
     );
   }
 
@@ -109,7 +149,7 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
                 button: true,
                 label: 'Touch to unlock with fingerprint',
                 child: GestureDetector(
-                  onTap: _fakeUnlock,
+                  onTap: _askFingerprint,
                   child: SizedBox(
                     width: 96,
                     height: 96,
@@ -163,9 +203,9 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
               ),
               const SizedBox(height: 6),
               Text(
-                'The sensor is under the screen, here',
+                _problem ?? 'The sensor is under the screen, here',
                 textAlign: TextAlign.center,
-                style: AppText.body(13, color: c.muted),
+                style: AppText.body(13, color: _problem == null ? c.muted : c.error),
               ),
               const SizedBox(height: 64),
               OutlinePillButton(

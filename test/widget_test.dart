@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:applock/main.dart';
 
 void main() {
-  // A quick check that the app starts and the setup flow moves forward.
-  testWidgets('Welcome opens Set PIN, and Continue needs 4 digits', (tester) async {
+  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+
+  Future<void> typePin(WidgetTester tester, String pin) async {
+    for (final d in pin.split('')) {
+      await tester.tap(find.text(d));
+    }
+    await tester.pump();
+  }
+
+  testWidgets('Set PIN asks twice and catches a mismatch', (tester) async {
     // Use the Edge 40 Neo screen size: 1080x2400 pixels ≈ 411x914 logical.
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.625;
@@ -18,15 +27,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Create a backup PIN'), findsOneWidget);
 
-    // Type 4 digits: the hint changes to "Looks good".
-    for (final d in ['2', '5', '8', '0']) {
-      await tester.tap(find.text(d));
-    }
-    await tester.pump();
+    // Stage 1: 4 digits → "Looks good" → Continue.
+    await typePin(tester, '2580');
     expect(find.text('Looks good'), findsOneWidget);
-
     await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-    expect(find.text('Allow 4 permissions'), findsOneWidget);
+    await tester.pump();
+
+    // Stage 2: type a different PIN → back to stage 1 with an error.
+    expect(find.text('Type your PIN again'), findsOneWidget);
+    await typePin(tester, '1111');
+    await tester.tap(find.text('Confirm'));
+    await tester.pump();
+    expect(find.text('Create a backup PIN'), findsOneWidget);
+    expect(find.text('The PINs didn’t match. Try again.'), findsOneWidget);
   });
 }

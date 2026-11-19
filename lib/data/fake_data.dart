@@ -40,32 +40,26 @@ enum RelockDelay {
   final String label;
 }
 
-/// Holds all pretend state in memory while the app is open.
-/// Everything resets when the app is closed. Real saving starts in Phase 2.
+/// Holds the remaining pretend state in memory while the app is open.
+/// Everything here resets when the app is closed.
+/// (The PIN is real since Phase 2: see services/pin_store.dart.)
 class FakeStore {
   FakeStore._();
   static final instance = FakeStore._(); // one shared copy for all screens
 
-  static const maxPinTries = 5;
-
-  // Home
+  // Home (real apps + saving: Phase 3)
   bool protectionOn = true;
   final Set<String> lockedIds = {
     'whatsapp', 'gallery', 'instagram', 'gpay', 'phonepe', 'settings',
   };
 
-  // PIN: the Set PIN screen overwrites this, so the PIN preview
-  // accepts whatever you chose. (Phase 2 will store a salted hash instead.)
-  String pin = '1234';
-  int pinTriesLeft = maxPinTries;
-
-  // Permissions screen
+  // Permissions screen (real checks: Phase 5)
   bool accessibilityAllowed = true;
   bool overlayAllowed = true;
   bool fingerprintAllowed = false;
   bool batteryAllowed = false;
 
-  // Settings screen
+  // Settings screen (saved for real: Phase 6)
   bool fingerprintUnlock = true;
   RelockDelay relockDelay = RelockDelay.now;
   bool lockOnScreenOff = true;

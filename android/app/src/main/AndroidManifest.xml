@@ -1,8 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Lets the app show Android's fingerprint popup. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+
+    <!-- allowBackup="false": the PIN hash is encrypted with a key that never
+         leaves this phone, so a cloud backup of it would be useless anyway
+         (and could break the app after a restore). -->
     <application
         android:label="App Lock"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"
