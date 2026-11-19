@@ -32,7 +32,8 @@ Route<dynamic> onGenerateRoute(RouteSettings settings) {
 
   final Widget screen = switch (settings.name) {
     Routes.setPin => SetPinScreen(changing: settings.arguments == SetPinScreen.changeMode),
-    Routes.permissions => const PermissionsScreen(),
+    // arguments == true: opened from Settings (not during setup).
+    Routes.permissions => PermissionsScreen(fromSettings: settings.arguments == true),
     Routes.home => const HomeScreen(),
     Routes.settings => const SettingsScreen(),
     Routes.lock => LockScreen(app: app),

@@ -17,6 +17,8 @@ import io.flutter.plugin.common.MethodChannel
 object NativeChannel {
     const val NAME = "app_lock/native"
 
+    // [context] is MainActivity: settings pages are opened from it, so Back
+    // in Android settings returns straight to App Lock.
     fun register(context: Context, messenger: BinaryMessenger) {
         // applicationContext lives as long as the app, so it's safe to keep.
         val appContext = context.applicationContext
@@ -48,6 +50,14 @@ object NativeChannel {
                     val on = call.argument<Boolean>("on") ?: true
                     LockedAppsStore.setProtectionOn(appContext, on)
                     result.success(null)
+                }
+
+                "getPermissions" ->
+                    result.success(PermissionsHelper.status(appContext))
+
+                "openPermission" -> {
+                    val name = call.argument<String>("name") ?: "appInfo"
+                    result.success(PermissionsHelper.open(context, name))
                 }
 
                 else -> result.notImplemented() // unknown method name

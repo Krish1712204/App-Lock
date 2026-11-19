@@ -1,6 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Lets the app show Android's fingerprint popup. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <!-- "Display over other apps". Must be listed here, or App Lock wouldn't
+         even appear on that settings page. Helps Android allow the lock
+         screen to open on top of other apps. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <!-- Lets App Lock show Android's "Let app always run in background?"
+         popup (Battery: Unrestricted). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
 
     <!-- allowBackup="false": the PIN hash is encrypted with a key that never
          leaves this phone, so a cloud backup of it would be useless anyway

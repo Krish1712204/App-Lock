@@ -35,4 +35,16 @@ class NativeBridge {
 
   static Future<void> setProtectionOn(bool on) =>
       _channel.invokeMethod('setProtectionOn', {'on': on});
+
+  /// Real permission status from Kotlin (PermissionsHelper.kt):
+  /// accessibility, watcherRunning, overlay, battery → true/false.
+  static Future<Map<String, bool>> getPermissions() async {
+    final map = await _channel.invokeMapMethod<String, bool>('getPermissions');
+    return map ?? const {};
+  }
+
+  /// Opens Android's settings page for one permission
+  /// ("accessibility", "overlay", "fingerprint", "battery" or "appInfo").
+  static Future<void> openPermission(String name) =>
+      _channel.invokeMethod('openPermission', {'name': name});
 }

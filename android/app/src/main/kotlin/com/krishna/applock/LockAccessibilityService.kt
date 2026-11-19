@@ -54,10 +54,12 @@ class LockAccessibilityService : AccessibilityService() {
             registerReceiver(screenOffReceiver, filter)
         }
         LockEngine.warmUp(this) // normally already warm (AppLockApplication)
+        isRunning = true
         Log.d(TAG, "Watcher started. Overlays: $overlayPackages, launchers: $launcherPackages")
     }
 
     override fun onDestroy() {
+        isRunning = false
         // If the service stopped before it fully started, the receiver was
         // never registered, and unregistering would crash. So ignore that.
         try {
@@ -136,5 +138,11 @@ class LockAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "AppLockWatcher" // filter logcat with this
+
+        // True while the watcher is connected and working. Read by the
+        // Health check. (@Volatile: safe to read from any thread.)
+        @Volatile
+        var isRunning = false
+            private set
     }
 }

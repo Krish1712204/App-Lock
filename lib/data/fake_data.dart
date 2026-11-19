@@ -1,6 +1,7 @@
-// Pretend state that later phases will make real.
-// Already real: the PIN (Phase 2, services/pin_store.dart) and the apps +
-// locked list (Phase 3, services/native_bridge.dart).
+// Pretend state that Phase 6 will make real (the Settings switches).
+// Already real: the PIN (Phase 2, services/pin_store.dart), the apps +
+// locked list (Phase 3, services/native_bridge.dart) and the permissions
+// (Phase 5, services/permissions_service.dart).
 
 /// Choices for "Lock again after".
 enum RelockDelay {
@@ -17,12 +18,6 @@ enum RelockDelay {
 class FakeStore {
   FakeStore._();
   static final instance = FakeStore._(); // one shared copy for all screens
-
-  // Permissions screen (real checks: Phase 5)
-  bool accessibilityAllowed = true;
-  bool overlayAllowed = true;
-  bool fingerprintAllowed = false;
-  bool batteryAllowed = false;
 
   // Settings screen (saved for real: Phase 6)
   bool fingerprintUnlock = true;

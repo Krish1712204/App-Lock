@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/app_info.dart';
 import '../routes.dart';
 import '../services/native_bridge.dart';
+import '../services/permissions_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_icon.dart';
@@ -21,17 +22,43 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+// WidgetsBindingObserver: re-check the watcher when you come back to App Lock.
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<AppInfo>? _apps; // null while loading
   Set<String> _locked = {}; // package names of locked apps
   bool _protectionOn = true;
+  bool _watcherRunning = true; // assume fine until checked (no flash of red)
   String _query = ''; // text in the search box
   String? _loadError;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    _checkWatcher();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkWatcher();
+  }
+
+  /// Is the Accessibility watcher actually running? If not, nothing gets
+  /// locked, so Home shows a red warning.
+  Future<void> _checkWatcher() async {
+    try {
+      final status = await PermissionsService.check();
+      if (mounted) setState(() => _watcherRunning = status.watcherRunning);
+    } catch (_) {
+      // keep the last value
+    }
   }
 
   Future<void> _load({bool refresh = false}) async {
@@ -116,9 +143,11 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 12),
               _StatusCard(
                 on: _protectionOn,
+                broken: _protectionOn && !_watcherRunning,
                 lockedTotal: lockedTotal,
                 onToggle: _setProtection,
                 onPreview: _openPreview,
+                onFix: () => PermissionsService.open(AppPermission.accessibility),
               ),
               const SizedBox(height: 16),
               _SearchBox(onChanged: (q) => setState(() => _query = q)),
@@ -194,23 +223,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
 /// The big card at the top: shield, "Protection is on", master switch,
 /// and the "Preview the lock screen →" link.
+/// If [broken] (switch on, but the watcher isn't running), it turns red and
+/// shows a "Turn on Accessibility →" link.
 class _StatusCard extends StatelessWidget {
   const _StatusCard({
     required this.on,
+    required this.broken,
     required this.lockedTotal,
     required this.onToggle,
     required this.onPreview,
+    required this.onFix,
   });
 
   final bool on;
+  final bool broken;
   final int lockedTotal;
   final ValueChanged<bool> onToggle;
   final VoidCallback onPreview;
+  final VoidCallback onFix;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final appsWord = lockedTotal == 1 ? 'app' : 'apps';
+
+    final String title;
+    final String subtitle;
+    if (broken) {
+      title = 'Protection isn’t working';
+      subtitle = 'Accessibility is off, so apps open without a check';
+    } else if (on) {
+      title = 'Protection is on';
+      subtitle = '$lockedTotal $appsWord locked';
+    } else {
+      title = 'Protection is paused';
+      subtitle = 'Locked apps open without a check';
+    }
 
     return SurfaceCard(
       radius: 22,
@@ -221,8 +269,8 @@ class _StatusCard extends StatelessWidget {
           Row(
             children: [
               IconTile(
-                icon: AppIcons.shieldCheck,
-                iconColor: on ? c.accent : c.muted,
+                icon: broken ? AppIcons.alertTriangle : AppIcons.shieldCheck,
+                iconColor: broken ? c.error : (on ? c.accent : c.muted),
                 size: 48,
                 radius: 16,
                 iconSize: 24,
@@ -233,14 +281,11 @@ class _StatusCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      on ? 'Protection is on' : 'Protection is paused',
-                      style: AppText.body(17, weight: FontWeight.w600, color: c.text),
+                      title,
+                      style: AppText.body(17, weight: FontWeight.w600, color: broken ? c.error : c.text),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      on ? '$lockedTotal $appsWord locked' : 'Locked apps open without a check',
-                      style: AppText.body(13, color: c.muted),
-                    ),
+                    Text(subtitle, style: AppText.body(13, color: c.muted)),
                   ],
                 ),
               ),
@@ -249,10 +294,10 @@ class _StatusCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           GestureDetector(
-            onTap: onPreview,
+            onTap: broken ? onFix : onPreview,
             child: Text(
-              'Preview the lock screen →',
-              style: AppText.body(14, weight: FontWeight.w500, color: c.accent),
+              broken ? 'Turn on Accessibility →' : 'Preview the lock screen →',
+              style: AppText.body(14, weight: FontWeight.w600, color: broken ? c.error : c.accent),
             ),
           ),
         ],

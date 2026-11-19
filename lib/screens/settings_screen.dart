@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/fake_data.dart';
 import '../routes.dart';
+import '../services/permissions_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_icon.dart';
@@ -21,8 +22,38 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+// WidgetsBindingObserver: re-check the Health card when you come back
+// from Android settings.
+class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObserver {
   final _s = FakeStore.instance;
+  PermissionStatus? _health;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _checkHealth();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkHealth();
+  }
+
+  Future<void> _checkHealth() async {
+    try {
+      final status = await PermissionsService.check();
+      if (mounted) setState(() => _health = status);
+    } catch (_) {
+      // keep the last result
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +150,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ]),
                     ),
                     const _GroupLabel('Health check'),
-                    const _HealthCheck(),
+                    _HealthCheck(status: _health),
+                    // The Permissions screen is part of setup; this is the
+                    // way back to it afterwards.
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => Navigator.pushNamed(context, Routes.permissions, arguments: true),
+                        style: TextButton.styleFrom(foregroundColor: c.accent),
+                        child: Text('All permissions →', style: AppText.body(14, weight: FontWeight.w600, color: c.accent)),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -335,19 +376,28 @@ class _RelockPicker extends StatelessWidget {
   }
 }
 
-/// The "Health check" card. Phase 1: always all green (fake).
-/// Phase 5 fills it with the real permission status.
+/// The "Health check" card, with the real status.
+/// Green ✓ = fine. Red ✗ = a problem: tap the line to open the fix.
 class _HealthCheck extends StatelessWidget {
-  const _HealthCheck();
+  const _HealthCheck({required this.status});
+
+  final PermissionStatus? status; // null while checking
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    const lines = [
-      'Accessibility service is running',
-      'Battery set to Unrestricted',
-      'Fingerprint saved on this phone',
+    final s = status;
+    // (ok?, text when ok, text when not ok, what to open to fix it)
+    final lines = <(bool, String, String, AppPermission)>[
+      (s?.watcherRunning ?? true, 'Accessibility service is running',
+          'Accessibility service is off · Fix', AppPermission.accessibility),
+      (s?.overlay ?? true, 'Can display over other apps',
+          'Can’t display over other apps · Fix', AppPermission.overlay),
+      (s?.battery ?? true, 'Battery set to Unrestricted',
+          'Battery isn’t Unrestricted · Fix', AppPermission.battery),
+      (s?.fingerprint ?? true, 'Fingerprint saved on this phone',
+          'No fingerprint saved · Add one', AppPermission.fingerprint),
     ];
+
     return SurfaceCard(
       radius: 18,
       padding: const EdgeInsets.all(16),
@@ -356,14 +406,38 @@ class _HealthCheck extends StatelessWidget {
         children: [
           for (var i = 0; i < lines.length; i++) ...[
             if (i > 0) const SizedBox(height: 10),
-            Row(
-              children: [
-                AppIcon(AppIcons.check, size: 18, strokeWidth: 2.5, color: c.accent),
-                const SizedBox(width: 10),
-                Expanded(child: Text(lines[i], style: AppText.body(14, color: c.text))),
-              ],
-            ),
+            _HealthLine(ok: lines[i].$1, okText: lines[i].$2, badText: lines[i].$3, fix: lines[i].$4),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthLine extends StatelessWidget {
+  const _HealthLine({required this.ok, required this.okText, required this.badText, required this.fix});
+
+  final bool ok;
+  final String okText;
+  final String badText;
+  final AppPermission fix;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: ok ? null : () => PermissionsService.open(fix),
+      child: Row(
+        children: [
+          AppIcon(ok ? AppIcons.check : AppIcons.cross, size: 18, strokeWidth: 2.5, color: ok ? c.accent : c.error),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              ok ? okText : badText,
+              style: AppText.body(14, weight: ok ? FontWeight.w400 : FontWeight.w500, color: ok ? c.text : c.error),
+            ),
+          ),
         ],
       ),
     );
