@@ -32,6 +32,23 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <!-- The watcher (LockAccessibilityService.kt). Only Android itself can
+             connect to it, because of the BIND_ACCESSIBILITY_SERVICE permission.
+             The meta-data points to its settings file in res/xml. -->
+        <service
+            android:name=".LockAccessibilityService"
+            android:label="@string/accessibility_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config"/>
+        </service>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -47,6 +64,18 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Since Android 11, apps can't see other apps unless they say why.
+             These two let App Lock see (1) apps with an icon in the app
+             drawer, for the Home list, and (2) the home-screen app, so the
+             watcher can ignore it. This is narrower than QUERY_ALL_PACKAGES. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.LAUNCHER"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.HOME"/>
         </intent>
     </queries>
 </manifest>

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/fake_data.dart';
+import '../data/app_info.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import 'app_icon.dart';
@@ -99,9 +99,10 @@ class IconTile extends StatelessWidget {
   }
 }
 
-/// A colored square with the app's first letter (stand-in for app icons).
-class LetterTile extends StatelessWidget {
-  const LetterTile({
+/// An app's real icon. If the app has no icon, a colored square with its
+/// first letter (the look from the designs) is shown instead.
+class AppTile extends StatelessWidget {
+  const AppTile({
     super.key,
     required this.app,
     this.size = 44,
@@ -109,17 +110,31 @@ class LetterTile extends StatelessWidget {
     this.fontSize = 19,
   });
 
-  final FakeApp app;
+  final AppInfo app;
   final double size;
-  final double radius;
+  final double radius; // only used by the letter fallback
   final double fontSize;
 
   @override
   Widget build(BuildContext context) {
+    final icon = app.icon;
+    if (icon != null) {
+      // Android already gives icons their shape (circle, squircle...),
+      // so we draw them as they are.
+      return Image.memory(
+        icon,
+        width: size,
+        height: size,
+        gaplessPlayback: true, // no flicker when the list rebuilds
+        filterQuality: FilterQuality.medium,
+        // Decode at the size we show, to save memory.
+        cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+      );
+    }
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(color: app.color, borderRadius: BorderRadius.circular(radius)),
+      decoration: BoxDecoration(color: app.fallbackColor, borderRadius: BorderRadius.circular(radius)),
       child: Center(
         child: Text(
           app.letter,

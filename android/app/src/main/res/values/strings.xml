@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shown in Settings → Accessibility → App Lock. -->
+    <string name="accessibility_label">App Lock</string>
+    <string name="accessibility_description">Notices when a locked app opens, so App Lock can cover it with the lock screen. It only checks which app is open. It never reads what\'s on your screen.</string>
+</resources>

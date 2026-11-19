@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/app_info.dart';
 import '../data/fake_data.dart';
 import '../routes.dart';
 import '../services/biometric_service.dart';
@@ -18,7 +19,7 @@ import '../widgets/common.dart';
 class LockScreen extends StatefulWidget {
   const LockScreen({super.key, required this.app});
 
-  final FakeApp app;
+  final AppInfo app;
 
   @override
   State<LockScreen> createState() => _LockScreenState();
@@ -111,7 +112,7 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
                 child: Stack(
                   clipBehavior: Clip.none, // the badge sticks out of the tile
                   children: [
-                    LetterTile(app: app, size: 84, radius: 26, fontSize: 36),
+                    AppTile(app: app, size: 84, radius: 26, fontSize: 36),
                     Positioned(
                       right: -8,
                       bottom: -8,

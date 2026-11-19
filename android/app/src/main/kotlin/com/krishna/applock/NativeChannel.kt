@@ -1,0 +1,57 @@
+package com.krishna.applock
+
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import io.flutter.plugin.common.BinaryMessenger
+import io.flutter.plugin.common.MethodChannel
+
+// The bridge between Flutter (Dart) and Kotlin.
+//
+// Dart calls e.g. `channel.invokeMethod('setLockedApps', {...})`, and
+// the matching branch below runs in Kotlin. `result.success(x)` sends x
+// back to Dart as the answer.
+//
+// It's in its own file (not inside MainActivity) so that Phase 4's lock
+// screen engine can register the same channel.
+object NativeChannel {
+    const val NAME = "app_lock/native"
+
+    fun register(context: Context, messenger: BinaryMessenger) {
+        // applicationContext lives as long as the app, so it's safe to keep.
+        val appContext = context.applicationContext
+
+        MethodChannel(messenger, NAME).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getInstalledApps" -> {
+                    // Drawing ~100 icons takes a moment: do it on a background
+                    // thread, then answer Dart on the main thread (required).
+                    Thread {
+                        val apps = InstalledApps.load(appContext)
+                        Handler(Looper.getMainLooper()).post { result.success(apps) }
+                    }.start()
+                }
+
+                "getLockedApps" ->
+                    result.success(LockedAppsStore.getLocked(appContext).toList())
+
+                "setLockedApps" -> {
+                    val packages = call.argument<List<String>>("packages") ?: emptyList()
+                    LockedAppsStore.setLocked(appContext, packages)
+                    result.success(null)
+                }
+
+                "isProtectionOn" ->
+                    result.success(LockedAppsStore.isProtectionOn(appContext))
+
+                "setProtectionOn" -> {
+                    val on = call.argument<Boolean>("on") ?: true
+                    LockedAppsStore.setProtectionOn(appContext, on)
+                    result.success(null)
+                }
+
+                else -> result.notImplemented() // unknown method name
+            }
+        }
+    }
+}

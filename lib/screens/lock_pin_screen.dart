@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../data/fake_data.dart';
+import '../data/app_info.dart';
 import '../routes.dart';
 import '../services/biometric_service.dart';
 import '../services/pin_store.dart';
@@ -21,7 +21,7 @@ import '../widgets/pin_widgets.dart';
 class LockPinScreen extends StatefulWidget {
   const LockPinScreen({super.key, required this.app});
 
-  final FakeApp app;
+  final AppInfo app;
 
   @override
   State<LockPinScreen> createState() => _LockPinScreenState();
@@ -177,7 +177,7 @@ class _LockPinScreenState extends State<LockPinScreen> {
           padding: const EdgeInsets.fromLTRB(28, 72, 28, 32),
           child: Column(
             children: [
-              LetterTile(app: app, size: 60, radius: 19, fontSize: 26),
+              AppTile(app: app, size: 60, radius: 19, fontSize: 26),
               const SizedBox(height: 20),
               Text(
                 'Enter PIN to open ${app.name}',

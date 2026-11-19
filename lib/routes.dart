@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'data/fake_data.dart';
+import 'data/app_info.dart';
 import 'screens/home_screen.dart';
 import 'screens/lock_pin_screen.dart';
 import 'screens/lock_screen.dart';
@@ -25,8 +25,10 @@ class Routes {
 /// MaterialApp calls this every time we navigate.
 Route<dynamic> onGenerateRoute(RouteSettings settings) {
   // The two lock screens need to know which app is locked.
-  // In Phase 1 we fall back to WhatsApp, like the design.
-  final app = settings.arguments is FakeApp ? settings.arguments as FakeApp : fakeApps.first;
+  // If none was passed, fall back to WhatsApp, like the design.
+  final app = settings.arguments is AppInfo
+      ? settings.arguments as AppInfo
+      : const AppInfo(packageName: 'com.whatsapp', name: 'WhatsApp');
 
   final Widget screen = switch (settings.name) {
     Routes.setPin => SetPinScreen(changing: settings.arguments == SetPinScreen.changeMode),

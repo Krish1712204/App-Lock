@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../data/fake_data.dart';
+import '../data/app_info.dart';
 import '../routes.dart';
+import '../services/native_bridge.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_icon.dart';
@@ -11,7 +12,8 @@ import '../widgets/pill_switch.dart';
 
 /// Screen 4 (design/Home.html): master switch, search, and the app lists.
 ///
-/// Phase 1 uses the 12 fake apps. Phase 3 loads the real installed apps.
+/// The apps come from Kotlin (your real installed apps). Every switch is
+/// saved straight to Kotlin, where the watcher reads it.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -20,24 +22,67 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _store = FakeStore.instance;
+  List<AppInfo>? _apps; // null while loading
+  Set<String> _locked = {}; // package names of locked apps
+  bool _protectionOn = true;
   String _query = ''; // text in the search box
+  String? _loadError;
 
-  bool _matches(FakeApp app) => app.name.toLowerCase().contains(_query.trim().toLowerCase());
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-  void _toggleApp(FakeApp app) {
+  Future<void> _load({bool refresh = false}) async {
+    try {
+      // Ask Kotlin for all three things at the same time.
+      final results = await Future.wait([
+        NativeBridge.getInstalledApps(refresh: refresh),
+        NativeBridge.getLockedApps(),
+        NativeBridge.isProtectionOn(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _apps = results[0] as List<AppInfo>;
+        _locked = results[1] as Set<String>;
+        _protectionOn = results[2] as bool;
+        _loadError = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _loadError = 'Couldn’t load your apps.\n$e');
+    }
+  }
+
+  bool _matches(AppInfo app) => app.name.toLowerCase().contains(_query.trim().toLowerCase());
+
+  void _toggleApp(AppInfo app) {
     setState(() {
       // Set.remove returns false if it wasn't there, so then we add it.
-      if (!_store.lockedIds.remove(app.id)) _store.lockedIds.add(app.id);
+      if (!_locked.remove(app.packageName)) _locked.add(app.packageName);
     });
+    NativeBridge.setLockedApps(_locked); // save for the watcher
+  }
+
+  void _setProtection(bool on) {
+    setState(() => _protectionOn = on);
+    NativeBridge.setProtectionOn(on);
+  }
+
+  /// "Preview the lock screen →" uses your first locked app (or any app).
+  void _openPreview() {
+    final apps = _apps ?? const <AppInfo>[];
+    final lockedApps = apps.where((a) => _locked.contains(a.packageName));
+    final app = lockedApps.isNotEmpty ? lockedApps.first : (apps.isNotEmpty ? apps.first : null);
+    Navigator.pushNamed(context, Routes.lock, arguments: app);
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final locked = fakeApps.where((a) => _store.lockedIds.contains(a.id) && _matches(a)).toList();
-    final other = fakeApps.where((a) => !_store.lockedIds.contains(a.id) && _matches(a)).toList();
-    final bottomInset = MediaQuery.paddingOf(context).bottom; // gesture bar height
+    final apps = _apps ?? const <AppInfo>[];
+    // Count only locked apps that are still installed.
+    final lockedTotal = apps.where((a) => _locked.contains(a.packageName)).length;
 
     return Scaffold(
       body: SafeArea(
@@ -62,12 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         iconSize: 20,
                         tooltip: 'Settings',
                         background: c.surface,
-                        onPressed: () async {
-                          await Navigator.pushNamed(context, Routes.settings);
-                          // Refresh in case something changed (only if this
-                          // screen is still open).
-                          if (mounted) setState(() {});
-                        },
+                        onPressed: () => Navigator.pushNamed(context, Routes.settings),
                       ),
                     ),
                   ],
@@ -75,54 +115,97 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 12),
               _StatusCard(
-                on: _store.protectionOn,
-                lockedTotal: _store.lockedIds.length,
-                onToggle: (v) => setState(() => _store.protectionOn = v),
+                on: _protectionOn,
+                lockedTotal: lockedTotal,
+                onToggle: _setProtection,
+                onPreview: _openPreview,
               ),
               const SizedBox(height: 16),
               _SearchBox(onChanged: (q) => setState(() => _query = q)),
               const SizedBox(height: 8),
-              // The scrolling list of apps.
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.only(bottom: 24 + bottomInset),
-                  children: [
-                    if (locked.isNotEmpty) ...[
-                      _ListHeader('Locked · ${locked.length}'),
-                      for (final app in locked) _AppRow(app: app, locked: true, onToggle: () => _toggleApp(app)),
-                    ],
-                    if (other.isNotEmpty) ...[
-                      _ListHeader('Other apps · ${other.length}'),
-                      for (final app in other) _AppRow(app: app, locked: false, onToggle: () => _toggleApp(app)),
-                    ],
-                    if (locked.isEmpty && other.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 48),
-                        child: Text(
-                          'No apps match “$_query”',
-                          textAlign: TextAlign.center,
-                          style: AppText.body(15, color: c.muted),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+              Expanded(child: _buildList(context)),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _buildList(BuildContext context) {
+    final c = context.colors;
+
+    if (_loadError != null) {
+      return Center(
+        child: Text(_loadError!, textAlign: TextAlign.center, style: AppText.body(14, color: c.error)),
+      );
+    }
+    if (_apps == null) {
+      return Center(child: CircularProgressIndicator(color: c.accent));
+    }
+
+    final locked = _apps!.where((a) => _locked.contains(a.packageName) && _matches(a)).toList();
+    final other = _apps!.where((a) => !_locked.contains(a.packageName) && _matches(a)).toList();
+    final bottomInset = MediaQuery.paddingOf(context).bottom; // gesture bar height
+
+    // Pull down to reload the app list (e.g. after installing a new app).
+    return RefreshIndicator(
+      color: c.accent,
+      onRefresh: () => _load(refresh: true),
+      child: CustomScrollView(
+        // Always scrollable, so pull-to-refresh works even with few apps.
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // A SliverList builds rows only when they scroll into view,
+          // which keeps a list of 100+ apps smooth.
+          if (locked.isNotEmpty) ..._section('Locked · ${locked.length}', locked, isLocked: true),
+          if (other.isNotEmpty) ..._section('Other apps · ${other.length}', other, isLocked: false),
+          if (locked.isEmpty && other.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 48),
+                child: Text(
+                  'No apps match “$_query”',
+                  textAlign: TextAlign.center,
+                  style: AppText.body(15, color: c.muted),
+                ),
+              ),
+            ),
+          SliverToBoxAdapter(child: SizedBox(height: 24 + bottomInset)),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _section(String title, List<AppInfo> apps, {required bool isLocked}) => [
+        SliverToBoxAdapter(child: _ListHeader(title)),
+        SliverList.builder(
+          itemCount: apps.length,
+          itemBuilder: (_, i) => _AppRow(
+            // The key helps Flutter keep the right switch with the right app
+            // when rows move between the two lists.
+            key: ValueKey(apps[i].packageName),
+            app: apps[i],
+            locked: isLocked,
+            onToggle: () => _toggleApp(apps[i]),
+          ),
+        ),
+      ];
 }
 
 /// The big card at the top: shield, "Protection is on", master switch,
 /// and the "Preview the lock screen →" link.
 class _StatusCard extends StatelessWidget {
-  const _StatusCard({required this.on, required this.lockedTotal, required this.onToggle});
+  const _StatusCard({
+    required this.on,
+    required this.lockedTotal,
+    required this.onToggle,
+    required this.onPreview,
+  });
 
   final bool on;
   final int lockedTotal;
   final ValueChanged<bool> onToggle;
+  final VoidCallback onPreview;
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +249,7 @@ class _StatusCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           GestureDetector(
-            onTap: () => Navigator.pushNamed(context, Routes.lock, arguments: fakeApps.first),
+            onTap: onPreview,
             child: Text(
               'Preview the lock screen →',
               style: AppText.body(14, weight: FontWeight.w500, color: c.accent),
@@ -230,12 +313,12 @@ class _ListHeader extends StatelessWidget {
   }
 }
 
-/// One app: letter tile, name, "Needs fingerprint"/"Not locked", switch.
+/// One app: icon, name, "Needs fingerprint"/"Not locked", switch.
 /// Tapping anywhere on the row flips the switch.
 class _AppRow extends StatelessWidget {
-  const _AppRow({required this.app, required this.locked, required this.onToggle});
+  const _AppRow({super.key, required this.app, required this.locked, required this.onToggle});
 
-  final FakeApp app;
+  final AppInfo app;
   final bool locked;
   final VoidCallback onToggle;
 
@@ -249,14 +332,19 @@ class _AppRow extends StatelessWidget {
         height: 64,
         child: Row(
           children: [
-            LetterTile(app: app),
+            AppTile(app: app),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(app.name, style: AppText.body(15, weight: FontWeight.w500, color: c.text)),
+                  Text(
+                    app.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis, // long names end with "…"
+                    style: AppText.body(15, weight: FontWeight.w500, color: c.text),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     locked ? 'Needs fingerprint' : 'Not locked',
