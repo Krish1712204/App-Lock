@@ -59,15 +59,22 @@ object NativeChannel {
                 "setSetting" -> {
                     val key = call.argument<String>("key") ?: ""
                     val value = call.argument<Any>("value")
+                    // Was setup already done BEFORE this call? (Dart re-sends
+                    // setupDone=true on every start.)
+                    val setupWasDone = SettingsStore.isOn(appContext, SettingsStore.SETUP_DONE)
                     SettingsStore.set(appContext, key, value)
                     when (key) {
                         // Apply "Hide previews" right away to the open screen.
                         SettingsStore.HIDE_RECENTS ->
                             (context as? Activity)?.let { SecureScreen.apply(it) }
-                        // A PIN was just created and you're inside App Lock:
-                        // don't lock App Lock on you straight away.
+                        // A PIN was JUST created (first time only) and you're
+                        // inside App Lock: don't lock App Lock on you right
+                        // away. Only on the first change from false to true;
+                        // otherwise every app start would skip the lock.
                         SettingsStore.SETUP_DONE ->
-                            if (value == true) UnlockSession.markInside(appContext.packageName)
+                            if (value == true && !setupWasDone) {
+                                UnlockSession.markInside(appContext.packageName)
+                            }
                     }
                     result.success(null)
                 }
