@@ -18,7 +18,6 @@ object SettingsStore {
     const val LOCK_ON_SCREEN_OFF = "lockOnScreenOff"
     const val LOCK_SYSTEM_APPS = "lockSystemApps" // Settings, Play Store, installer
     const val HIDE_RECENTS = "hideRecents" // FLAG_SECURE on App Lock's screens
-    const val SETUP_DONE = "setupDone" // a PIN exists (so App Lock can lock itself)
 
     // Every setting with its default value.
     private val defaults: Map<String, Any> = mapOf(
@@ -27,7 +26,6 @@ object SettingsStore {
         LOCK_ON_SCREEN_OFF to true,
         LOCK_SYSTEM_APPS to false,
         HIDE_RECENTS to true,
-        SETUP_DONE to false,
     )
 
     private fun prefs(context: Context): SharedPreferences =

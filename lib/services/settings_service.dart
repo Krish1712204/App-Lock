@@ -46,7 +46,6 @@ class SettingsKeys {
   static const lockOnScreenOff = 'lockOnScreenOff';
   static const lockSystemApps = 'lockSystemApps';
   static const hideRecents = 'hideRecents';
-  static const setupDone = 'setupDone';
 }
 
 class SettingsService {

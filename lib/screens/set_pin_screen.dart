@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../routes.dart';
 import '../services/pin_store.dart';
-import '../services/settings_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/buttons.dart';
@@ -136,12 +135,6 @@ class _SetPinScreenState extends State<SetPinScreen> {
 
     setState(() => _busy = true);
     await PinStore.instance.savePin(_pin);
-    try {
-      // Tell Kotlin a PIN exists, so App Lock can now lock itself.
-      await SettingsService.set(SettingsKeys.setupDone, true);
-    } catch (_) {
-      // Kotlin not reachable (only happens in tests).
-    }
     if (!mounted) return; // the screen was closed while saving
 
     if (widget.changing) {

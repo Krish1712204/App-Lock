@@ -91,10 +91,10 @@ class LockAccessibilityService : AccessibilityService() {
         if (pkg in overlayPackages) return
 
         if (pkg == packageName) {
-            // App Lock itself. Only its main screen counts as "you opened
-            // App Lock". Everything else is our lock window covering an app
-            // (it also sends "android.widget.FrameLayout" events, which
-            // caused the lock loop).
+            // App Lock itself (never locked). Only its main screen counts as
+            // "you switched to App Lock". Everything else is our lock window
+            // covering an app (it also sends "android.widget.FrameLayout"
+            // events, which once caused a lock loop).
             if (LockActivity.isShowing || cls != MainActivity::class.java.name) return
         } else if (pkg !in launcherPackages && !isRealScreen(pkg, cls)) {
             // Not a real app screen (an Activity) but a floating layer: Edge
@@ -111,7 +111,7 @@ class LockAccessibilityService : AccessibilityService() {
         // A different app is now in front, so you left the previous one.
         val previous = foregroundPackage
         foregroundPackage = pkg
-        onLeft(previous, pkg)
+        onLeft(previous)
 
         if (pkg in launcherPackages) return // home screen / Recent apps: never locked
         lockIfNeeded(pkg)
@@ -136,33 +136,17 @@ class LockAccessibilityService : AccessibilityService() {
         }
     }
 
-    // You went from [previous] to [now]: start the relock timer of [previous].
-    // Special case: a settings page App Lock opened for you ("hand-off").
-    private fun onLeft(previous: String?, now: String) {
+    // You left [previous]: start its relock timer. If it was a settings page
+    // App Lock opened for you ("hand-off"), that free visit is now over.
+    private fun onLeft(previous: String?) {
         if (previous == null) return
-        val handOff = UnlockSession.handOff
-        when {
-            // App Lock → the page it opened: App Lock stays unlocked.
-            previous == packageName && now == handOff -> Unit
-
-            // Leaving that page: it's over. If you didn't go back to
-            // App Lock, App Lock counts as left too.
-            previous == handOff -> {
-                UnlockSession.left(previous)
-                UnlockSession.endHandOff()
-                if (now != packageName) UnlockSession.left(packageName)
-            }
-
-            else -> UnlockSession.left(previous)
-        }
+        UnlockSession.left(previous)
+        if (previous == UnlockSession.handOff) UnlockSession.endHandOff()
     }
 
     // Should this app be covered by the lock screen at all?
     private fun isLockTarget(pkg: String): Boolean {
-        // App Lock itself: always locked once a PIN exists (even if the
-        // master switch is off, so nobody can just switch it back on/off).
-        if (pkg == packageName) return SettingsStore.isOn(this, SettingsStore.SETUP_DONE)
-
+        if (pkg == packageName) return false // App Lock itself is never locked
         if (!LockedAppsStore.isProtectionOn(this)) return false // master switch is off
         if (pkg in LockedAppsStore.getLocked(this)) return true // you locked it on Home
         // "Lock Settings & Play Store" (+ the uninstall dialog).

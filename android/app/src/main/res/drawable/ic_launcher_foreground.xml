@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App icon, front layer: a padlock whose body carries a fingerprint.
+     Teal = the app's accent color (#5EEAD4). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="1.08"
+        android:scaleY="1.08"
+        android:translateY="1.5">
+        <!-- shackle (the U on top) -->
+        <path
+            android:pathData="M42,47 V40 A12,12 0 0 1 66,40 V47"
+            android:strokeColor="#FF5EEAD4"
+            android:strokeWidth="6.5"
+            android:strokeLineCap="round" />
+        <!-- lock body, with a light-to-dark teal gradient -->
+        <path android:pathData="M42,46 H66 A9,9 0 0 1 75,55 V71 A9,9 0 0 1 66,80 H42 A9,9 0 0 1 33,71 V55 A9,9 0 0 1 42,46 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:type="linear"
+                    android:startX="54"
+                    android:startY="46"
+                    android:endX="54"
+                    android:endY="80">
+                    <item android:offset="0" android:color="#FF7CF3E0" />
+                    <item android:offset="1" android:color="#FF2CC9B2" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <!-- fingerprint lines, drawn in the dark background color -->
+        <path
+            android:pathData="M42.6,68 V66 A11.4,11.4 0 0 1 65.4,66 V70 M46.6,71.5 V66 A7.4,7.4 0 0 1 61.4,66 V73.5 M50.6,70.5 V66 A3.4,3.4 0 0 1 57.4,66 V68.5 M54,65.5 V75"
+            android:strokeColor="#FF0D1014"
+            android:strokeWidth="2.9"
+            android:strokeLineCap="round" />
+    </group>
+</vector>

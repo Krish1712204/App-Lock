@@ -18,9 +18,7 @@ Future<void> main() async {
   final setupDone = await PinStore.instance.hasPin();
   if (setupDone) {
     try {
-      // Tell Kotlin a PIN exists (so App Lock locks itself), and read the
-      // fingerprint setting for the lock preview.
-      await SettingsService.set(SettingsKeys.setupDone, true);
+      // Read the fingerprint setting for the lock preview.
       LockController.fingerprintEnabled = (await SettingsService.load()).fingerprintUnlock;
     } catch (_) {
       // Kotlin not reachable (shouldn't happen): keep the defaults.
