@@ -27,6 +27,36 @@ I built it as a personal project for my Motorola Edge 40 Neo (Android 15, in-dis
 fingerprint sensor). It should work on most Android phones with a fingerprint sensor.
 It is not on the Play Store. You install it as an APK.
 
+## Screenshots
+
+<table align="center">
+  <tr><th align="center">Home</th><th align="center">Lock screen</th><th align="center">Backup PIN</th><th align="center">Settings</th></tr>
+  <tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-home.png"><img src="docs/screenshots/light-home.png" width="175" alt="Home screen with locked and other apps"></picture></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-lock.png"><img src="docs/screenshots/light-lock.png" width="175" alt="Lock screen asking for a fingerprint"></picture></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-lock-pin.png"><img src="docs/screenshots/light-lock-pin.png" width="175" alt="PIN entry after a wrong PIN, 3 tries left"></picture></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-settings.png"><img src="docs/screenshots/light-settings.png" width="175" alt="Settings screen"></picture></td></tr>
+</table>
+
+<details>
+<summary><b>First-time setup screens</b></summary>
+<br>
+
+<table align="center">
+  <tr><th align="center">Welcome</th><th align="center">Create PIN</th><th align="center">Permissions</th></tr>
+  <tr><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-welcome.png"><img src="docs/screenshots/light-welcome.png" width="200" alt="Welcome screen"></picture></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-set-pin.png"><img src="docs/screenshots/light-set-pin.png" width="200" alt="Create a backup PIN"></picture></td><td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dark-permissions.png"><img src="docs/screenshots/light-permissions.png" width="200" alt="Permissions checklist"></picture></td></tr>
+</table>
+
+</details>
+
+**Light and dark theme.** The app follows the phone's theme. The screenshots above follow
+your GitHub theme.
+
+<p align="center">
+  <img src="docs/screenshots/light-lock.png" width="200" alt="Lock screen, light theme">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/dark-lock.png" width="200" alt="Lock screen, dark theme">
+</p>
+
+<sub>Screenshots use demo apps. They are drawn from the real screens by
+<code>tool/screenshots/</code> (see <a href="#updating-the-screenshots">Updating the screenshots</a>).</sub>
+
 ## Features
 
 - **Fingerprint unlock** using Android's own fingerprint popup.
@@ -94,6 +124,8 @@ lib/
 android/app/src/main/kotlin/com/krishna/applock/
                        Accessibility service, lock activity, storage, bridge
 design/                Approved screen designs (HTML, dark + light) and the logo
+docs/screenshots/      README screenshots
+tool/screenshots/      Makes those screenshots from the real screens
 test/                  Dart unit and widget tests
 android/app/src/test/  Kotlin unit tests for UnlockSession
 ```
@@ -118,6 +150,18 @@ The APK is saved to `build/app/outputs/flutter-apk/app-release.apk`.
 
 > The release build is signed with the local **debug key**, which is fine for a personal
 > sideloaded app. To publish the app, set up your own signing key first.
+
+### Updating the screenshots
+
+The README screenshots are drawn from the real Flutter screens with demo data, in both
+themes, so they never show anyone's real apps.
+
+```bash
+flutter test tool/screenshots/screenshots_test.dart --update-goldens   # raw 1170×2532 PNGs
+python tool/screenshots/round_corners.py                              # rounded, into docs/screenshots/
+```
+
+The second step needs Pillow (`pip install pillow`).
 
 ## First-time setup on the phone
 

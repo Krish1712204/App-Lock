@@ -49,3 +49,6 @@ app.*.map.json
 
 # The original design kit zip (its contents are already in the repo)
 applock-claude-code-kit.zip
+
+# Raw screenshots (tool/screenshots makes these; the rounded ones are in docs/)
+/tool/screenshots/out/
