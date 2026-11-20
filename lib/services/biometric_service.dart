@@ -43,10 +43,17 @@ class BiometricService {
   Future<AuthResult> _authenticate({required String title, required bool biometricOnly}) async {
     try {
       final ok = await _auth.authenticate(
-        localizedReason: biometricOnly ? 'Touch the fingerprint sensor' : 'Use your phone’s screen lock',
+        // Fingerprint: no extra text. Android already shows its own
+        // "Touch the fingerprint sensor" line, so ours would appear twice.
+        // Empty text lines are hidden by Android.
+        localizedReason: biometricOnly ? '' : 'Use your phone’s screen lock',
         biometricOnly: biometricOnly,
         authMessages: [
-          AndroidAuthMessages(signInTitle: title, cancelButton: 'Cancel'),
+          AndroidAuthMessages(
+            signInTitle: title,
+            signInHint: '', // hides the default "Verify identity" line
+            cancelButton: 'Cancel',
+          ),
         ],
       );
       return ok ? AuthResult.success : AuthResult.cancelled;
