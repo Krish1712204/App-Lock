@@ -101,6 +101,10 @@ class LockActivity : FlutterFragmentActivity() {
         super.onResume()
         current = this
         LockEngine.notifyResumed(true)
+        // The lock screen is now on top of the app: remove the watcher's
+        // instant cover. Wait a moment, so the lock screen is surely drawn
+        // first (its window background already matches the cover's color).
+        window.decorView.postDelayed({ LockAccessibilityService.hideCover() }, 120)
     }
 
     override fun onPause() {

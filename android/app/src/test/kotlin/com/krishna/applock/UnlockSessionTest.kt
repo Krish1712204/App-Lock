@@ -50,6 +50,31 @@ class UnlockSessionTest {
     }
 
     @Test
+    fun `right away - a quick blip just after unlocking does not lock again`() {
+        UnlockSession.markUnlocked("com.truecaller")
+        now += 300 // the lock screen is closing
+        UnlockSession.left("com.truecaller") // Android reports another window...
+        now += 200
+        assertTrue(UnlockSession.isUnlocked("com.truecaller", 0)) // ...no lock loop
+    }
+
+    @Test
+    fun `right away - leaving after the grace time locks`() {
+        UnlockSession.markUnlocked("com.whatsapp")
+        now += UnlockSession.GRACE_MS + 5_000 // used it for a while
+        UnlockSession.left("com.whatsapp")
+        assertFalse(UnlockSession.isUnlocked("com.whatsapp", 0))
+    }
+
+    @Test
+    fun `right away - leaving during grace locks once the grace time is over`() {
+        UnlockSession.markUnlocked("com.whatsapp")
+        UnlockSession.left("com.whatsapp")
+        now += UnlockSession.GRACE_MS + 1
+        assertFalse(UnlockSession.isUnlocked("com.whatsapp", 0))
+    }
+
+    @Test
     fun `screen off locks everything`() {
         UnlockSession.markInside("com.whatsapp")
         UnlockSession.relockAll()

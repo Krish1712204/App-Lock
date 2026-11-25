@@ -69,7 +69,7 @@ object LockEngine {
 
             "unlocked" -> {
                 // Fingerprint or PIN was correct: remember it and close the lock.
-                call.argument<String>("packageName")?.let { UnlockSession.markInside(it) }
+                call.argument<String>("packageName")?.let { UnlockSession.markUnlocked(it) }
                 currentLock = null
                 LockActivity.current?.closeLock()
                 result.success(null)

@@ -67,6 +67,8 @@ your GitHub theme.
   app starts, so the lock screen appears without a delay.
 - **Re-lock timer**: lock again right away, after 1 minute or after 5 minutes of leaving an app.
 - **Lock when the screen turns off**: every app is locked again when the screen goes off.
+- **Calls are never blocked**: while the phone rings or a call is on, the call screen stays
+  visible even if the Phone app is locked.
 - **Lock Settings & Play Store**: stops someone from uninstalling App Lock or turning it off.
 - **Hide previews in Recents**: App Lock's screens show as a blank card in Recent apps.
 - **Health check** that shows whether every permission is still on, with a tap to fix each one.
@@ -80,8 +82,10 @@ your GitHub theme.
   (`flutter_secure_storage`).
 - The app never sees your fingerprint. Android checks it and only tells App Lock whether
   it matched.
-- The Accessibility service only reads **which app** is on screen (its package name).
-  It is set up so it cannot read what is on the screen (`canRetrieveWindowContent="false"`).
+- The Accessibility service only reads **which app** you're using (its package name, for
+  example `com.whatsapp`). To ask Android which window is active, the service needs
+  `canRetrieveWindowContent="true"`, so Android's Accessibility page may describe it as able
+  to view the screen. App Lock reads **only the package name**, never text or images.
 
 ## How it works
 
@@ -90,7 +94,10 @@ your GitHub theme.
         │
         ▼
  LockAccessibilityService  ──  "a new app window opened: com.whatsapp"
+        │   (also: "the active window changed", e.g. back from Recent apps)
         │   Is it locked? Was it unlocked recently?
+        ▼
+ Instant cover  (a plain overlay window, shown in one frame, hides the app)
         ▼
  LockActivity  (uses the pre-warmed FlutterEngine from FlutterEngineCache)
         │   Dart entry point lockMain() draws the lock screen
@@ -100,7 +107,7 @@ your GitHub theme.
 
 | Part | Language | Job |
 |---|---|---|
-| `LockAccessibilityService` | Kotlin | Watches which app comes to the front and starts the lock screen |
+| `LockAccessibilityService` | Kotlin | Watches which app comes to the front, covers it at once and starts the lock screen |
 | `LockActivity` + `LockEngine` | Kotlin | Shows the lock screen with a cached, pre-warmed Flutter engine |
 | `UnlockSession` | Kotlin | Remembers unlocked apps until the re-lock timer runs out or the screen turns off |
 | `LockedAppsStore`, `SettingsStore` | Kotlin | Saves the locked apps and settings so the service can read them without Flutter |
@@ -184,8 +191,12 @@ phone allows it.
 
 ## Limitations
 
-- On Android, an app lock can only cover an app once it has opened, so you may see the app
-  for a moment before the lock screen appears.
+- Android only tells an app lock which app opened once that app's window is in front.
+  When you reopen an app that is still in memory, you may see it for about 0.2 seconds
+  during the opening animation before App Lock's cover hides it.
+- Popups that float over another app without taking focus (for example Truecaller's
+  after-call card) are treated like notifications and are not locked. Opening the app
+  itself is locked.
 - If someone turns off the Accessibility service, nothing gets locked. Turn on
   **Lock Settings & Play Store** to make that harder.
 - Android only. There is no iOS version, because iOS doesn't let apps lock other apps.

@@ -7,8 +7,16 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.PixelFormat
+import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.telecom.TelecomManager
 import android.util.Log
+import android.view.View
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
 
@@ -63,12 +71,15 @@ class LockAccessibilityService : AccessibilityService() {
         }
         LockEngine.warmUp(this) // normally already warm (AppLockApplication)
         UnlockSession.endHandOff() // start clean
+        instance = this
         isRunning = true
         Log.d(TAG, "Watcher started. Overlays: $overlayPackages, launchers: $launcherPackages")
     }
 
     override fun onDestroy() {
         isRunning = false
+        removeCover()
+        if (instance === this) instance = null
         // If the service stopped before it fully started, the receiver was
         // never registered, and unregistering would crash. So ignore that.
         try {
@@ -81,32 +92,148 @@ class LockAccessibilityService : AccessibilityService() {
 
     // Called by Android for every event we asked for in the config file.
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        val pkg = event.packageName?.toString() ?: return
-        val cls = event.className?.toString()
-        if (isDebugBuild) Log.v(TAG, "event pkg=$pkg class=$cls fg=$foregroundPackage")
+        if (event == null) return
+        when (event.eventType) {
+            // A new screen or popup opened.
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                val pkg = event.packageName?.toString() ?: return
+                val cls = event.className?.toString()
+                if (isDebugBuild) Log.v(TAG, "screen: $pkg / $cls (fg=$foregroundPackage)")
 
-        // A popup over the current app (keyboard, notifications...):
-        // you haven't left the app.
-        if (pkg in overlayPackages) return
+                // Keyboard, notifications, fingerprint popup...: over the app.
+                if (pkg in overlayPackages) return
 
-        if (pkg == packageName) {
-            // App Lock itself (never locked). Only its main screen counts as
-            // "you switched to App Lock". Everything else is our lock window
-            // covering an app (it also sends "android.widget.FrameLayout"
-            // events, which once caused a lock loop).
-            if (LockActivity.isShowing || cls != MainActivity::class.java.name) return
-        } else if (pkg !in launcherPackages && !isRealScreen(pkg, cls)) {
-            // Not a real app screen (an Activity) but a floating layer: Edge
-            // lights, a toast, a bubble, a view inside a window... Those
-            // must not count as "you left the app" (with "Right away" that
-            // re-locked the app you had just unlocked).
-            // The home screen is the exception: any event from it counts.
+                // FAST PATH: a real app screen (or its popup). Act at once,
+                // this is the earliest moment Android tells us.
+                if (isAppScreen(pkg, cls)) {
+                    if (isFloatingOverAnotherApp(pkg)) {
+                        Log.d(TAG, "Floating popup of $pkg: treated like a notification")
+                        return
+                    }
+                    lastScreenPackage = pkg
+                    lastScreenAt = SystemClock.uptimeMillis()
+                    onAppInFront(pkg, how = "screen")
+                    return
+                }
+
+                // Not a full screen. If it's a LOCKED app's window, it's
+                // usually the splash Android shows while that app starts
+                // (~0.2 s before the app's content). Hide it already.
+                preCoverIfLocked(pkg)
+                // Otherwise it's a floating layer (Edge lights, a bubble...)
+                // or our own lock window. Ask which window you're using.
+            }
+            // Windows changed. We only care when the window you're USING
+            // changed (e.g. you came back from Recent apps, which sends no
+            // other event). Older Androids don't say what changed: check anyway.
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val useful = AccessibilityEvent.WINDOWS_CHANGE_ACTIVE or
+                        AccessibilityEvent.WINDOWS_CHANGE_FOCUSED
+                    if (event.windowChanges and useful == 0) return
+                }
+            }
+            else -> return
+        }
+
+        // The app of the window you're using right now. Floating layers
+        // (Edge lights, bubbles, a starting splash) are never "the window
+        // you're using", so they can't fool this.
+        val active = activeWindowPackage() ?: return
+        if (active != foregroundPackage && !trustActiveWindow(active)) {
+            if (isDebugBuild) Log.v(TAG, "ignored active window $active (fg just showed a screen)")
             return
         }
+        onAppInFront(active, how = "active window")
+    }
+
+    // When was the last real app screen shown, and by which app?
+    private var lastScreenPackage: String? = null
+    private var lastScreenAt = 0L
+
+    // Should we believe "the active window is [active]"?
+    // Usually yes. But some apps show a real screen that floats WITHOUT
+    // taking focus (e.g. Truecaller's after-call popup over the home
+    // screen). Then the active window says "home screen" while Truecaller
+    // is clearly in front. Believing that made a lock loop: "left Truecaller"
+    // → "Truecaller again" → lock → unlock → "left" → lock...
+    private fun trustActiveWindow(active: String): Boolean {
+        // A locked app you're using: always act at once (safety first).
+        // This is how coming back from Recent apps gets locked.
+        if (isLockTarget(active)) return true
+        // Anything else may only say "you left the app" if that app hasn't
+        // just shown a screen itself.
+        val justShown = lastScreenPackage == foregroundPackage &&
+            SystemClock.uptimeMillis() - lastScreenAt < 1_500
+        return !justShown
+    }
+
+    // Is [pkg]'s new screen a popup that floats over ANOTHER app without
+    // taking focus? Example: Truecaller's after-call card over Instagram or
+    // the home screen. You can keep using the app underneath, so it's like
+    // a notification: not locked, and you haven't left the app underneath.
+    // (Locking it made a loop: Truecaller locked, then Instagram, then
+    // Truecaller... because both looked "in front".)
+    // Opening the app itself still locks: then its window takes focus.
+    private fun isFloatingOverAnotherApp(pkg: String): Boolean {
+        if (pkg in launcherPackages || pkg == packageName) return false
+        val active = activeWindowPackage() ?: return false
+        return active != pkg && active !in overlayPackages && active != packageName
+    }
+
+    // Is this event a real app screen we can trust right away?
+    private fun isAppScreen(pkg: String, cls: String?): Boolean = when (pkg) {
+        in launcherPackages -> true // home screen / Recent apps: always counts
+        // App Lock: only its main screen means "you opened App Lock". Its
+        // lock window also sends events (e.g. "android.widget.FrameLayout").
+        packageName -> cls == MainActivity::class.java.name
+        // Other apps: an Activity, or a popup that belongs to one.
+        else -> isRealScreen(pkg, cls) || isDialog(cls)
+    }
+
+    // A locked app is starting (its splash screen appeared): cover it now,
+    // before its content can show. If it turns out to be something else
+    // (e.g. a floating window of that app), the cover goes away after 0.8 s.
+    private fun preCoverIfLocked(pkg: String) {
+        if (pkg == foregroundPackage || !isLockTarget(pkg)) return
+        if (UnlockSession.isUnlocked(pkg, SettingsStore.relockDelayMs(this))) return
+        showCover(timeoutMs = 800)
+    }
+
+    // The package name of the window you're using, e.g. "com.whatsapp".
+    // We read ONLY the package name, nothing that's on the screen.
+    private fun activeWindowPackage(): String? {
+        val root = try {
+            rootInActiveWindow
+        } catch (e: RuntimeException) {
+            null // the window went away while we asked
+        } ?: return null
+        val pkg = root.packageName?.toString()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            @Suppress("DEPRECATION") // needed before Android 13, automatic after
+            root.recycle()
+        }
+        return pkg
+    }
+
+    // [pkg] is the app in front now. Decide if you left the previous app
+    // and if [pkg] must be locked.
+    private fun onAppInFront(pkg: String, how: String) {
+        // A popup over the current app (keyboard, notifications, fingerprint
+        // popup...): you haven't left the app.
+        if (pkg in overlayPackages) return
+
+        // Our own lock window covering an app: nothing changed.
+        if (pkg == packageName && LockActivity.isShowing) return
+
+        // The call screen during a call: like a popup over what you were
+        // doing. Never locked, and you haven't "left" your app.
+        if (isCallScreen(pkg)) return
 
         // Still the same app in front (it just opened another screen).
         if (pkg == foregroundPackage) return
+        // Logged in release builds too (package names only), to find bugs.
+        Log.d(TAG, "In front: $pkg (from $how)")
 
         // A different app is now in front, so you left the previous one.
         val previous = foregroundPackage
@@ -136,6 +263,15 @@ class LockAccessibilityService : AccessibilityService() {
         }
     }
 
+    // Is this window a popup (Dialog)? A Dialog always belongs to an app
+    // screen that is open right now, so it means "this app is in front".
+    // Example: Google Photos sometimes opens with a popup first, and its
+    // own screen sends no event. Without this, Photos opened unlocked.
+    // (Class names like "android.app.Dialog", "...AlertDialog",
+    // "...BottomSheetDialog".)
+    private fun isDialog(cls: String?): Boolean =
+        cls != null && cls.substringAfterLast('.').contains("Dialog")
+
     // You left [previous]: start its relock timer. If it was a settings page
     // App Lock opened for you ("hand-off"), that free visit is now over.
     private fun onLeft(previous: String?) {
@@ -147,10 +283,25 @@ class LockAccessibilityService : AccessibilityService() {
     // Should this app be covered by the lock screen at all?
     private fun isLockTarget(pkg: String): Boolean {
         if (pkg == packageName) return false // App Lock itself is never locked
+        if (isCallScreen(pkg)) return false // never hide a ringing/active call
         if (!LockedAppsStore.isProtectionOn(this)) return false // master switch is off
         if (pkg in LockedAppsStore.getLocked(this)) return true // you locked it on Home
         // "Lock Settings & Play Store" (+ the uninstall dialog).
         return SettingsStore.isOn(this, SettingsStore.LOCK_SYSTEM_APPS) && pkg in SYSTEM_APPS
+    }
+
+    // Is [pkg] the phone app while a call is ringing or going on?
+    // Then it's the call screen, and you must be able to answer or hang up
+    // without unlocking. (After the call, the phone app is locked again:
+    // call history, contacts...)
+    // Neither check needs a permission:
+    //  - TelecomManager names the default phone app,
+    //  - AudioManager's mode is "normal" unless a call rings or is active.
+    private fun isCallScreen(pkg: String): Boolean {
+        val dialer = getSystemService(TelecomManager::class.java)?.defaultDialerPackage
+        if (pkg != dialer) return false
+        val mode = getSystemService(AudioManager::class.java)?.mode ?: return false
+        return mode != AudioManager.MODE_NORMAL
     }
 
     // Shows the lock screen if this app is locked and not unlocked (in time).
@@ -161,7 +312,65 @@ class LockAccessibilityService : AccessibilityService() {
             return
         }
         Log.d(TAG, "Locking $pkg")
+        showCover(timeoutMs = 2_500) // hide the app now; the lock screen takes ~0.3 s
         LockActivity.start(this, pkg)
+    }
+
+    // ---- Instant cover ----
+    // A plain full-screen window in App Lock's background color. An
+    // Accessibility service may show one without any extra permission, and
+    // it appears in one frame (~16 ms), much faster than starting the lock
+    // screen. LockActivity removes it as soon as the lock screen is visible
+    // (hideCover). Safety net: it removes itself after 2.5 s anyway, so it
+    // can never get stuck over your phone.
+
+    private var cover: View? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private val coverTimeout = Runnable { removeCover() }
+
+    // Shows the cover (if not already shown) and removes it after
+    // [timeoutMs] at the latest.
+    private fun showCover(timeoutMs: Long) {
+        handler.removeCallbacks(coverTimeout)
+        handler.postDelayed(coverTimeout, timeoutMs)
+        if (cover != null) return
+        val view = View(this).apply {
+            // values/colors.xml or values-night/colors.xml: follows dark mode.
+            setBackgroundColor(getColor(R.color.app_background))
+        }
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            // Doesn't take keyboard focus, and covers the status bar area too.
+            // It does catch touches, so nothing in the locked app can be tapped.
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.OPAQUE,
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            // Also draw under the camera cut-out.
+            params.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        try {
+            getSystemService(WindowManager::class.java).addView(view, params)
+            cover = view
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Couldn't show the cover", e) // the lock screen still opens
+        }
+    }
+
+    private fun removeCover() {
+        handler.removeCallbacks(coverTimeout)
+        val view = cover ?: return
+        cover = null
+        try {
+            getSystemService(WindowManager::class.java).removeView(view)
+        } catch (e: RuntimeException) {
+            // already gone
+        }
     }
 
     // Screen turned off. If "Lock when screen turns off" is on, every app
@@ -227,5 +436,14 @@ class LockAccessibilityService : AccessibilityService() {
         @Volatile
         var isRunning = false
             private set
+
+        // The running watcher, so LockActivity can remove the cover.
+        private var instance: LockAccessibilityService? = null
+
+        // Called by LockActivity once the lock screen is visible.
+        // (Main thread only, like the watcher itself.)
+        fun hideCover() {
+            instance?.removeCover()
+        }
     }
 }

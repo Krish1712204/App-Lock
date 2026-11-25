@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/app_info.dart';
@@ -88,8 +89,10 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
   Future<void> _askFingerprint() async {
     if (_asking) return; // the popup is already showing
     _asking = true;
+    if (kDebugMode) debugPrint('AppLock: fingerprint popup opened for ${widget.app.packageName}');
     final result = await BiometricService.instance.fingerprint(title: 'Unlock ${widget.app.name}');
     _asking = false;
+    if (kDebugMode) debugPrint('AppLock: fingerprint popup closed: $result');
     if (!mounted) return;
 
     switch (result) {

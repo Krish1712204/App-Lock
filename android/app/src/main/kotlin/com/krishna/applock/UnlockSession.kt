@@ -35,14 +35,32 @@ object UnlockSession {
         return false
     }
 
-    // You unlocked it, or came back to it in time: you're inside now.
+    // After a real unlock, the app can't lock again for this long, whatever
+    // happens. A safety net: while the lock screen closes, Android sometimes
+    // reports a quick "other window" in between, and with "Right away" that
+    // re-locked the app you had just unlocked (a lock loop).
+    const val GRACE_MS = 2_000L
+
+    // When each app was last unlocked with fingerprint/PIN.
+    private val unlockedAt = mutableMapOf<String, Long>()
+
+    // You came back to it in time (or App Lock opened it for you): you're inside.
     fun markInside(packageName: String) {
         unlocked[packageName] = null
     }
 
-    // You left the app: start its relock timer.
+    // Fingerprint or PIN was correct: you're inside, with a short grace time.
+    fun markUnlocked(packageName: String) {
+        markInside(packageName)
+        unlockedAt[packageName] = clock()
+    }
+
+    // You left the app: start its relock timer. Leaving during the grace
+    // time counts as leaving when the grace time ends.
     fun left(packageName: String) {
-        if (unlocked.containsKey(packageName)) unlocked[packageName] = clock()
+        if (!unlocked.containsKey(packageName)) return
+        val graceEnd = unlockedAt[packageName]?.plus(GRACE_MS)
+        unlocked[packageName] = if (graceEnd != null) maxOf(clock(), graceEnd) else clock()
     }
 
     // App Lock is about to open [target] (e.g. Android Settings) for you.
@@ -58,6 +76,7 @@ object UnlockSession {
     // Screen turned off (and that setting is on): lock everything again.
     fun relockAll() {
         unlocked.clear()
+        unlockedAt.clear()
         handOff = null
     }
 }

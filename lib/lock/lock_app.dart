@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/app_info.dart';
@@ -35,6 +36,7 @@ class _LockAppState extends State<LockApp> {
   }
 
   void _show(AppInfo app, bool fingerprint) {
+    if (kDebugMode) debugPrint('AppLock: new lock screen for ${app.packageName}');
     LockController.fingerprintEnabled = fingerprint;
     setState(() {
       _app = app;
