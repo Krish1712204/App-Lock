@@ -63,6 +63,9 @@ your GitHub theme.
 - **Backup PIN** (4–6 digits). After 5 wrong tries you wait 30 seconds.
   "Forgot PIN?" lets you in with your phone's screen lock.
 - **Pick apps to lock** from a searchable list of your installed apps, with one master switch.
+- **Locks can't be removed by someone else**: switching an app's lock off, or turning
+  protection off, asks for your fingerprint or phone screen lock first (remembered for
+  1 minute). Locking more apps never asks.
 - **Unlock animation**: after a correct fingerprint or PIN, a check mark pops in and the
   lock screen fades away into your app (skipped when "Remove animations" is on).
 - **Fast lock screen**: the lock screen's Flutter engine starts in the background when the

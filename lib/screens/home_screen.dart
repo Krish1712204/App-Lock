@@ -4,6 +4,7 @@ import '../data/app_info.dart';
 import '../lock/lock_controller.dart';
 import '../routes.dart';
 import '../services/native_bridge.dart';
+import '../services/owner_check.dart';
 import '../services/permissions_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
@@ -84,15 +85,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   bool _matches(AppInfo app) => app.name.toLowerCase().contains(_query.trim().toLowerCase());
 
-  void _toggleApp(AppInfo app) {
+  Future<void> _toggleApp(AppInfo app) async {
+    final removing = _locked.contains(app.packageName);
+    // Removing a lock makes App Lock weaker: check it's really you first.
+    // (Adding a lock never asks.)
+    if (removing && !await OwnerCheck.confirm(context, 'Remove lock from ${app.name}')) return;
+    if (!mounted) return;
     setState(() {
-      // Set.remove returns false if it wasn't there, so then we add it.
-      if (!_locked.remove(app.packageName)) _locked.add(app.packageName);
+      if (removing) {
+        _locked.remove(app.packageName);
+      } else {
+        _locked.add(app.packageName);
+      }
     });
     NativeBridge.setLockedApps(_locked); // save for the watcher
   }
 
-  void _setProtection(bool on) {
+  Future<void> _setProtection(bool on) async {
+    // Turning protection off unlocks everything: check it's really you.
+    if (!on && !await OwnerCheck.confirm(context, 'Turn off App Lock')) return;
+    if (!mounted) return;
     setState(() => _protectionOn = on);
     NativeBridge.setProtectionOn(on);
   }
