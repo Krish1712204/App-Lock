@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/common.dart';
 import '../widgets/pin_widgets.dart';
+import '../widgets/success_check.dart';
 
 /// Screen 6 (design/LockPin.html): type the PIN to open a locked app.
 ///
@@ -35,6 +36,7 @@ class _LockPinScreenState extends State<LockPinScreen> {
   String _entered = '';
   bool _wrong = false; // true right after a wrong PIN: dots turn red
   bool _checking = false; // true while the hash is being compared
+  bool _success = false; // true after a correct PIN: shows the check mark
   int _triesLeft = PinStore.maxTries;
   int _waitSeconds = 0; // > 0 while the keypad is paused
   Timer? _countdown;
@@ -82,7 +84,7 @@ class _LockPinScreenState extends State<LockPinScreen> {
     });
   }
 
-  bool get _blocked => _waitSeconds > 0 || _checking || _pinLength == null;
+  bool get _blocked => _waitSeconds > 0 || _checking || _success || _pinLength == null;
 
   void _addDigit(String d) {
     if (_blocked) return;
@@ -147,10 +149,14 @@ class _LockPinScreenState extends State<LockPinScreen> {
     }
   }
 
-  void _unlocked() {
+  Future<void> _unlocked() async {
     _countdown?.cancel();
-    // Real lock: closes and shows the app. Preview: back to Home.
-    LockController.unlocked(context, widget.app);
+    // The PIN dots turn into a check mark for a moment.
+    setState(() => _success = true);
+    await SuccessCheck.pause(context);
+    if (!mounted) return;
+    // Real lock: closes (fading out) and shows the app. Preview: back to Home.
+    await LockController.unlocked(context, widget.app);
   }
 
   void _toast(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -189,7 +195,23 @@ class _LockPinScreenState extends State<LockPinScreen> {
                   style: AppText.heading(22, weight: FontWeight.w600, color: c.text),
                 ),
                 const SizedBox(height: 36),
-                PinDots(total: length, filled: _wrong ? length : _entered.length, error: _wrong),
+                // Correct PIN: a check mark pops in over the dots. The dots
+                // stay (invisible), so nothing else on the screen moves.
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Opacity(
+                      opacity: _success ? 0 : 1,
+                      child: PinDots(total: length, filled: _wrong ? length : _entered.length, error: _wrong),
+                    ),
+                    if (_success)
+                      // Same size as the dots row, but lets the 56 px check
+                      // stick out of it, centered.
+                      const Positioned.fill(
+                        child: OverflowBox(maxWidth: 56, maxHeight: 56, child: SuccessCheck(size: 56)),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 14),
                 // Always reserve this space, so the layout doesn't jump.
                 SizedBox(

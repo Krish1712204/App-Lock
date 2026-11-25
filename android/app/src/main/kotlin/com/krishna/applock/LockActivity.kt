@@ -121,9 +121,17 @@ class LockActivity : FlutterFragmentActivity() {
     }
 
     // Unlock worked: close, so the locked app underneath is visible again.
+    // The lock screen fades out (res/anim/lock_fade_out.xml) after Dart has
+    // shown its check mark. With "Remove animations" on, Android skips it.
     fun closeLock() {
-        finish()
-        skipAnimation(opening = false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, R.anim.lock_fade_out)
+            finish()
+        } else {
+            finish()
+            @Suppress("DEPRECATION")
+            overridePendingTransition(0, R.anim.lock_fade_out)
+        }
     }
 
     // Back was pressed: show the phone's home screen, then close.

@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_icon.dart';
 import '../widgets/buttons.dart';
 import '../widgets/common.dart';
+import '../widgets/success_check.dart';
 
 /// Screen 5 (design/LockScreen.html): "WhatsApp is locked" + fingerprint.
 ///
@@ -47,6 +48,7 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
   String? _problem; // shown in red under the sensor text, e.g. "No fingerprint saved"
   bool _asking = false; // true while the fingerprint popup is open
   bool _autoAsked = false; // the popup opens by itself only ONCE per lock
+  bool _success = false; // true after a good unlock: shows the check mark
 
   @override
   void initState() {
@@ -89,7 +91,9 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
   Future<void> _askFingerprint() async {
     if (_asking) return; // the popup is already showing
     _asking = true;
-    if (kDebugMode) debugPrint('AppLock: fingerprint popup opened for ${widget.app.packageName}');
+    if (kDebugMode) {
+      debugPrint('AppLock: fingerprint popup opened for ${widget.app.packageName}');
+    }
     final result = await BiometricService.instance.fingerprint(title: 'Unlock ${widget.app.name}');
     _asking = false;
     if (kDebugMode) debugPrint('AppLock: fingerprint popup closed: $result');
@@ -112,7 +116,11 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
   Future<void> _unlocked() async {
     await PinStore.instance.resetTries(); // a good unlock clears wrong PIN tries
     if (!mounted) return;
-    // Real lock: closes and shows the app. Preview: back to Home.
+    // The fingerprint circle turns into a check mark for a moment.
+    setState(() => _success = true);
+    await SuccessCheck.pause(context);
+    if (!mounted) return;
+    // Real lock: closes (fading out) and shows the app. Preview: back to Home.
     await LockController.unlocked(context, widget.app);
   }
 
@@ -187,49 +195,52 @@ class _LockScreenState extends State<LockScreen> with SingleTickerProviderStateM
                 button: true,
                 label: 'Touch to unlock with fingerprint',
                 child: GestureDetector(
-                  onTap: _askFingerprint,
+                  onTap: _success ? null : _askFingerprint,
                   child: SizedBox(
                     width: 96,
                     height: 96,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // The ring grows (1x → 1.7x) and fades out, again and again.
-                        // Positioned.fill = take the full 96x96 of the Stack.
-                        Positioned.fill(
-                          child: AnimatedBuilder(
-                            animation: _pulse,
-                            builder: (context, _) {
-                              final t = Curves.easeOut.transform(_pulse.value);
-                              return Transform.scale(
-                                scale: reduceMotion ? 1 : 1 + 0.7 * t,
-                                child: Opacity(
-                                  opacity: reduceMotion ? 0.25 : 0.55 * (1 - t),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: c.accent, width: 2),
-                                    ),
+                    // Unlocked: the check mark pops in where the circle was.
+                    child: _success
+                        ? const SuccessCheck(size: 96)
+                        : Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              // The ring grows (1x → 1.7x) and fades out, again and again.
+                              // Positioned.fill = take the full 96x96 of the Stack.
+                              Positioned.fill(
+                                child: AnimatedBuilder(
+                                  animation: _pulse,
+                                  builder: (context, _) {
+                                    final t = Curves.easeOut.transform(_pulse.value);
+                                    return Transform.scale(
+                                      scale: reduceMotion ? 1 : 1 + 0.7 * t,
+                                      child: Opacity(
+                                        opacity: reduceMotion ? 0.25 : 0.55 * (1 - t),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: c.accent, width: 2),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: c.surface,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: c.track),
+                                  ),
+                                  child: Center(
+                                    child: AppIcon(AppIcons.fingerprint, size: 48, strokeWidth: 1.6, color: c.accent),
                                   ),
                                 ),
-                              );
-                            },
+                              ),
+                            ],
                           ),
-                        ),
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: c.surface,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: c.track),
-                            ),
-                            child: Center(
-                              child: AppIcon(AppIcons.fingerprint, size: 48, strokeWidth: 1.6, color: c.accent),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ),
